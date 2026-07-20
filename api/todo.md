@@ -41,13 +41,14 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Charger le referentiel RAS via la configuration API.
 - [x] Creer les schemas Pydantic et contrats de reponse explicites.
 
-## Couche FastAPI
+## Couche FastAPI Future
 
 - [x] Initialiser FastAPI autour du coeur metier.
 - [x] Configurer le prefixe global `/api`.
 - [x] Ajouter `GET /api/health`.
-- [x] Creer `GET /api/account-mappings`.
-- [x] Creer `POST /api/account-mappings/import-from-files`.
+- [ ] Reporter les routes `account_mapping` apres stabilisation de la logique interne.
+- [ ] Creer `GET /api/account-mappings`.
+- [ ] Creer `POST /api/account-mappings/import-from-files` avec chemins securises ou source configuree.
 
 ## Tests et Verification
 
@@ -62,11 +63,11 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les tests unitaires du loader de referentiel RAS.
 - [x] Ajouter les tests unitaires sur les fixtures CSV representatives.
 - [x] Ajouter le test health.
-- [x] Ajouter les tests unitaires du router `account_mapping`.
+- [ ] Ajouter les tests unitaires du router `account_mapping` quand les routes seront reprises.
 - [x] Verifier l'import des 139 comptes GL.
 - [x] Verifier que 138 comptes obtiennent un libelle depuis le plan comptable.
 - [x] Verifier que `44910002` ressort comme compte sans libelle.
-- [x] Executer les tests metier/import/router disponibles localement: `PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q` avec 35 tests passes.
+- [x] Executer les tests metier/import disponibles localement: `PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q` avec 33 tests passes.
 - [x] Verifier la compilation Python: `PYTHONPATH=. python3 -m compileall app tests`.
 - [ ] Executer lint, typecheck et tests API via Docker. Bloque localement: Docker absent.
 

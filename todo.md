@@ -12,6 +12,8 @@ Checklist vivante du projet. Les cases seront cochees au fur et a mesure de l'av
 - [x] Remplacer le `Makefile` API par Docker + scripts racine.
 - [x] Documenter la vue projet dans `docs/project-overview.md`.
 - [x] Documenter les points non clarifies dans `docs/open-questions.md`.
+- [x] Ajouter un README projet concis.
+- [x] Garder les regles et skills assistant en local via `.gitignore`.
 - [ ] Suivre le detail API dans `api/todo.md`.
 
 ## CI/CD
