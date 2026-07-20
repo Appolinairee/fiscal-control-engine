@@ -5,10 +5,3 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .DS_Store
-
-# Local assistant rules and skills
-.agents/
-.cursorrules
-AGENTS.md
-CLAUDE.md
-docs/skills/
