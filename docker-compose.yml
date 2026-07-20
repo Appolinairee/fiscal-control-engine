@@ -1,0 +1,13 @@
+services:
+  api:
+    build:
+      context: ./api
+      target: development
+    env_file:
+      - ./api/.env.example
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app
+      - ./docs:/workspace/docs:ro
+    command: uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
