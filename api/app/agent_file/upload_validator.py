@@ -43,7 +43,7 @@ class AgentExcelUploadValidator:
 
 def _read_sheet_names(source_path: Path) -> tuple[str, ...]:
     try:
-        excel_file = pd.ExcelFile(source_path, engine="openpyxl")
+        with pd.ExcelFile(source_path, engine="openpyxl") as excel_file:
+            return tuple(excel_file.sheet_names)
     except (BadZipFile, OSError, ValueError) as exc:
         raise AgentFileReadError("invalid agent Excel file") from exc
-    return tuple(excel_file.sheet_names)

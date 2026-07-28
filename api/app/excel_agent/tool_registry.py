@@ -121,7 +121,7 @@ def create_excel_tool_registry() -> AgentToolRegistry:
                 safeguards=(
                     "allowed_file_only",
                     "metadata_only",
-                    "ledger_schema_validation",
+                    "ledger_schema_reporting",
                     "never_return_cell_values",
                 ),
             ),

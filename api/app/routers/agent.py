@@ -22,6 +22,7 @@ from app.excel_agent.excel_tools import ExcelAgentTools
 from app.excel_agent.tool_executor import ExcelToolExecutor
 from app.excel_agent.tool_registry import create_excel_tool_registry
 from app.llm.model_provider_factory import create_model_provider
+from app.llm.domain import ToolCall
 from app.schemas.agent import (
     AgentErrorDetail,
     AgentErrorResponse,
@@ -239,6 +240,17 @@ async def run_agent(
                 user_message=request.message,
                 file_path=file_path,
                 allowed_tools=tuple(request.allowed_tools or DEFAULT_AGENT_TOOLS),
+                direct_tool_call=(
+                    ToolCall(
+                        name=request.requested_tool,
+                        arguments={
+                            "file_path": str(file_path),
+                            "sheet_name": request.sheet_name,
+                        },
+                    )
+                    if request.requested_tool and request.sheet_name and file_path
+                    else None
+                ),
             ),
         )
     except ValueError:

@@ -34,21 +34,15 @@ class LedgerSchemaValidator:
             for required_column in self._required_columns
             if _normalize_column_name(required_column) not in normalized_to_original
         )
-        if missing_required_columns:
-            raise LedgerSchemaValidationError(
-                "missing required Grand Livre columns: "
-                f"{', '.join(missing_required_columns)}",
-            )
-
         optional_columns = tuple(
             normalized_to_original[_normalize_column_name(optional_column)]
             for optional_column in self._optional_columns
             if _normalize_column_name(optional_column) in normalized_to_original
         )
         return LedgerSchemaReport(
-            is_valid=True,
+            is_valid=not missing_required_columns,
             present_columns=tuple(columns),
-            missing_required_columns=(),
+            missing_required_columns=missing_required_columns,
             optional_columns=optional_columns,
         )
 

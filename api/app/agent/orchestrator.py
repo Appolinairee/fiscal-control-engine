@@ -22,6 +22,7 @@ class AgentRunRequest:
     user_message: str
     file_path: Path | None
     allowed_tools: tuple[str, ...]
+    direct_tool_call: ToolCall | None = None
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,19 @@ class AgentOrchestrator:
 
     def run(self, request: AgentRunRequest) -> AgentRunResult:
         started_at = self._monotonic()
+        if request.direct_tool_call is not None:
+            tool_result = self._execute_allowed_tool_call(
+                request.direct_tool_call,
+                request.allowed_tools,
+            )
+            return AgentRunResult(
+                answer=(
+                    "L'analyse déterministe du Grand Livre est terminée."
+                    if tool_result.ok
+                    else "L'analyse déterministe du Grand Livre a échoué."
+                ),
+                tool_results=(tool_result,),
+            )
         initial_model_request = _initial_model_request(
             request,
             tool_definitions=self._tool_executor.get_model_tool_definitions(

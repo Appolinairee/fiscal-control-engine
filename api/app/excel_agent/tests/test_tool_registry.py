@@ -32,7 +32,7 @@ def test_analyze_ledger_tool_definition_is_metadata_only() -> None:
 
     assert analyze_ledger is not None
     assert analyze_ledger.input_schema["required"] == ["file_path", "sheet_name"]
-    assert "ledger_schema_validation" in analyze_ledger.safeguards
+    assert "ledger_schema_reporting" in analyze_ledger.safeguards
     assert "never_return_cell_values" in analyze_ledger.safeguards
 
 

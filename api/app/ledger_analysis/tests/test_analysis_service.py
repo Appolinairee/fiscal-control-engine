@@ -1,12 +1,9 @@
 from pathlib import Path
 
 import pandas as pd
-import pytest
-
 from app.excel_agent.excel_tools import ExcelAgentTools
 from app.excel_agent.tests.fixtures import write_minified_grand_livre
 from app.ledger_analysis.analysis_service import LedgerAnalysisService
-from app.ledger_analysis.schema_validator import LedgerSchemaValidationError
 
 
 def test_service_builds_minified_grand_livre_report(tmp_path: Path) -> None:
@@ -41,7 +38,7 @@ def test_service_report_does_not_expose_cell_values(tmp_path: Path) -> None:
     assert "601000" not in serialized_report
 
 
-def test_service_rejects_grand_livre_with_missing_required_column(
+def test_service_reports_grand_livre_with_missing_required_column(
     tmp_path: Path,
 ) -> None:
     workbook_path = tmp_path / "invalid_grand_livre.xlsx"
@@ -57,5 +54,7 @@ def test_service_rejects_grand_livre_with_missing_required_column(
         dataframe.to_excel(writer, sheet_name="Grand Livre", index=False)
     service = LedgerAnalysisService(excel_tools=ExcelAgentTools(allowed_root=tmp_path))
 
-    with pytest.raises(LedgerSchemaValidationError, match="Compte"):
-        service.analyze(workbook_path, sheet_name="Grand Livre")
+    report = service.analyze(workbook_path, sheet_name="Grand Livre")
+
+    assert report.schema_report.is_valid is False
+    assert report.schema_report.missing_required_columns == ("Compte",)

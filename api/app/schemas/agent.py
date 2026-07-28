@@ -10,6 +10,8 @@ class AgentRunHttpRequest(BaseModel):
     session_id: str | None = None
     file_id: str | None = None
     allowed_tools: list[str] = Field(default_factory=list)
+    requested_tool: str | None = None
+    sheet_name: str | None = None
 
     @model_validator(mode="after")
     def validate_file_reference(self) -> "AgentRunHttpRequest":

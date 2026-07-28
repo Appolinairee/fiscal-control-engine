@@ -1,14 +1,9 @@
 from pathlib import Path
 
 import pandas as pd
-import pytest
-
 from app.excel_agent.excel_tools import ExcelAgentTools
 from app.excel_agent.tests.fixtures import write_minified_grand_livre
-from app.ledger_analysis.schema_validator import (
-    LedgerSchemaValidationError,
-    LedgerSchemaValidator,
-)
+from app.ledger_analysis.schema_validator import LedgerSchemaValidator
 
 
 def test_validator_accepts_minified_grand_livre_schema(tmp_path: Path) -> None:
@@ -31,11 +26,13 @@ def test_validator_accepts_minified_grand_livre_schema(tmp_path: Path) -> None:
     assert report.optional_columns == ()
 
 
-def test_validator_rejects_missing_required_account_column() -> None:
+def test_validator_reports_missing_required_account_column() -> None:
     validator = LedgerSchemaValidator()
 
-    with pytest.raises(LedgerSchemaValidationError, match="Compte"):
-        validator.validate(("Date comptable", "Libelle", "Debit", "Credit"))
+    report = validator.validate(("Date comptable", "Libelle", "Debit", "Credit"))
+
+    assert report.is_valid is False
+    assert report.missing_required_columns == ("Compte",)
 
 
 def test_validator_reports_optional_columns_without_failing() -> None:
