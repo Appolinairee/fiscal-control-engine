@@ -5,11 +5,12 @@
   "description": "Agent de revue fiscale pre-declaratif pour harmoniser les fichiers comptables et detecter les anomalies TVA/RAS.",
   "scripts": {
     "api:build": "docker compose build api",
+    "api:compile": "docker compose run --rm api uv run python -m compileall app tests scripts",
     "api:dev": "docker compose up api",
     "api:lint": "docker compose run --rm api uv run ruff check .",
     "api:smoke:llm": "docker compose run --rm api uv run python -m scripts.smoke_llm_provider",
     "api:test": "docker compose run --rm api uv run pytest",
-    "api:typecheck": "docker compose run --rm api uv run mypy app tests",
+    "api:typecheck": "docker compose run --rm api uv run mypy app tests scripts",
     "compose:down": "docker compose down",
     "compose:up": "docker compose up"
   },

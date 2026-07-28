@@ -42,7 +42,9 @@ def test_service_maps_ledger_accounts_with_plan_labels() -> None:
     assert result[0].ras_category is RasCategory.RESIDENT_SERVICES
     assert result[1].account_number == "44910002"
     assert result[1].classification_status is ClassificationStatus.MISSING_LABEL
-    assert repository.list_all() == result
+    assert {mapping.account_number for mapping in repository.list_all()} == {
+        mapping.account_number for mapping in result
+    }
 
 
 def test_service_deduplicates_ledger_accounts_preserving_first_order() -> None:

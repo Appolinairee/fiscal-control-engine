@@ -22,4 +22,7 @@ class InMemoryAccountMappingRepository(AccountMappingRepository):
             self._mappings_by_account_number[mapping.account_number] = mapping
 
     def list_all(self) -> list[AccountMapping]:
-        return list(self._mappings_by_account_number.values())
+        return [
+            self._mappings_by_account_number[account_number]
+            for account_number in sorted(self._mappings_by_account_number)
+        ]

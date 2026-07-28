@@ -48,3 +48,29 @@ def test_repository_replaces_existing_mappings_by_account_number() -> None:
     repository.save_all([replacement])
 
     assert repository.list_all() == [replacement]
+
+
+def test_repository_lists_mappings_sorted_by_account_number() -> None:
+    repository = InMemoryAccountMappingRepository()
+    mapping_706 = AccountMapping(
+        account_number="706000",
+        label="VENTES SERVICES",
+        ras_category=RasCategory.OUT_OF_SCOPE,
+        classification_status=ClassificationStatus.CLASSIFIED,
+        confidence="medium",
+        justification="Compte hors perimetre achats.",
+        action_required="Aucune action.",
+    )
+    mapping_604 = AccountMapping(
+        account_number="604000",
+        label="ACHATS PRESTATIONS",
+        ras_category=RasCategory.RESIDENT_SERVICES,
+        classification_status=ClassificationStatus.CLASSIFIED,
+        confidence="medium",
+        justification="Libelle compatible avec des prestations de services.",
+        action_required="Verifier IFU et seuil facture.",
+    )
+
+    repository.save_all([mapping_706, mapping_604])
+
+    assert repository.list_all() == [mapping_604, mapping_706]

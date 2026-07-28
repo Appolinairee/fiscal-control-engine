@@ -1,5 +1,4 @@
 import { PlusIcon } from "@/public/assets/icons/icons";
-
 import TopbarBrand from "./TopbarBrand";
 import TopbarIconButton from "./TopbarIconButton";
 import TopbarProfile from "./TopbarProfile";

@@ -55,6 +55,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les erreurs structurees: chemin non autorise, feuille inconnue, format non supporte.
 - [x] Ajouter les erreurs structurees pour fichier absent ou fichier Excel invalide/corrompu.
 - [x] Limiter les sorties des tools pour ne pas exposer de lignes completes ou de donnees sensibles.
+- [x] Autoriser les tools Excel sur les racines projet et stockage temporaire controlees.
 - [x] Documenter le flux Agent Excel dans `docs/rag-flow-mermaid.md`.
 - [x] Decider que les tools restent internes et ne sont pas exposes un par un en HTTP.
 - [x] Valider les tool calls avant execution: nom connu, schema valide, fichier autorise, limites respectees.
@@ -129,6 +130,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter l'endpoint multipart `POST /api/agent/files`.
 - [x] Brancher l'upload et le run agent sur le meme store temporaire en memoire.
 - [x] Tester le flux HTTP complet upload Excel -> run agent sur le Grand Livre minifie.
+- [x] Tester le flux HTTP upload Excel -> run agent -> tool `analyze_ledger`.
 
 ## RAG Documentaire / Sources
 
@@ -169,9 +171,10 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Initialiser FastAPI autour du coeur metier.
 - [x] Configurer le prefixe global `/api`.
 - [x] Ajouter `GET /api/health`.
-- [ ] Reporter les routes `account_mapping` apres stabilisation de la logique interne.
-- [ ] Creer `GET /api/account-mappings`.
-- [ ] Creer `POST /api/account-mappings/import-from-files` avec chemins securises ou source configuree.
+- [x] Reprendre les routes `account_mapping` apres stabilisation de la logique interne.
+- [x] Creer `GET /api/account-mappings`.
+- [x] Creer `POST /api/account-mappings/import-from-files` avec sources configurees cote serveur.
+- [x] Refuser les chemins utilisateur dans `POST /api/account-mappings/import-from-files`.
 
 ## Tests et Verification
 
@@ -181,6 +184,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Renforcer les tests unitaires sur les cas limites: fichier vide, extension non supportee, libelle vide, doublons plan comptable.
 - [ ] Reporter les tests d'integration Excel/Docker a une phase ulterieure.
 - [x] Ajouter les tests unitaires du repository fichier ou memoire.
+- [x] Ajouter les tests unitaires de l'ordre stable du repository `account_mapping`.
 - [x] Ajouter les tests unitaires du service `account_mapping`.
 - [x] Ajouter les tests unitaires du classifieur RAS preliminaire.
 - [x] Ajouter les tests unitaires du loader de referentiel RAS.
@@ -199,6 +203,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les tests unitaires du provider `sentence-transformers` optionnel.
 - [x] Ajouter les tests unitaires de la factory embeddings.
 - [x] Ajouter les tests unitaires des tools internes Agent Excel.
+- [x] Ajouter les tests unitaires des racines multiples autorisees pour les tools Excel.
 - [x] Ajouter les tests unitaires de validation/execution des tool calls Agent Excel.
 - [x] Ajouter les tests unitaires de l'orchestrateur agent interne.
 - [x] Ajouter les tests unitaires des garde-fous de sortie agent.
@@ -225,14 +230,15 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les tests unitaires du router d'upload agent.
 - [x] Ajouter les tests unitaires sur les fixtures CSV representatives.
 - [x] Ajouter le test health.
-- [ ] Ajouter les tests unitaires du router `account_mapping` quand les routes seront reprises.
+- [x] Ajouter les tests unitaires du router `account_mapping`.
+- [x] Ajouter les tests unitaires du router d'import `account_mapping`.
 - [x] Verifier l'import des 139 comptes GL.
 - [x] Verifier que 138 comptes obtiennent un libelle depuis le plan comptable.
 - [x] Verifier que `44910002` ressort comme compte sans libelle.
 - [x] Executer les tests metier/import disponibles localement: `PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q` avec 33 tests passes.
 - [x] Executer les tests chunker disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests/test_chunker.py -q` avec 5 tests passes.
 - [x] Executer les tests RAG source disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests -q` avec 43 tests passes.
-- [x] Executer tous les tests API disponibles localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m pytest -q` avec 168 tests passes.
+- [x] Executer tous les tests API disponibles localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m pytest -q` avec 176 tests passes.
 - [x] Executer le lint API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m ruff check app tests scripts`.
 - [x] Executer le typecheck API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m mypy app tests scripts`.
 - [x] Verifier le smoke LLM sans cle: sortie controlee `missing LLM_OPENAI_COMPATIBLE_API_KEY`.
@@ -243,7 +249,8 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 ## CI/CD Future
 
 - [ ] Etudier les pipelines existants dans `portefolio` et autres projets de reference.
-- [ ] Ajouter une CI API: build Docker, lint, typecheck, tests.
+- [x] Ajouter une CI API: lint, typecheck, tests et compilation Python.
+- [x] Ajouter le build Docker API dans la CI.
 - [ ] Ajouter une CI front quand le socle front existe.
 - [ ] Ajouter les controles de secrets et fichiers sensibles avant merge.
 - [ ] Ajouter une strategie CD apres validation de l'environnement cible.

@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     ras_classification_rules_path: str = (
         "../docs/reference/ras-classification-rules.csv"
     )
+    account_mapping_ledger_accounts_path: str = (
+        "app/account_mapping/tests/fixtures/ledger_accounts.csv"
+    )
+    account_mapping_plan_accounts_path: str = (
+        "app/account_mapping/tests/fixtures/plan_accounts.csv"
+    )
     rag_embedding_provider: str = "deterministic"
     rag_embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     llm_provider_chain: str = "internal:controlled-response"

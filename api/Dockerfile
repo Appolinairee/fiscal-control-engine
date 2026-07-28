@@ -15,6 +15,7 @@ RUN uv sync --extra dev
 
 COPY app ./app
 COPY tests ./tests
+COPY scripts ./scripts
 
 EXPOSE 8000
 

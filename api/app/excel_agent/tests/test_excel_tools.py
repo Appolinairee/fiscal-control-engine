@@ -67,6 +67,22 @@ def test_tools_reject_files_outside_allowed_root(tmp_path: Path) -> None:
         tools.list_sheets(workbook_path)
 
 
+def test_tools_accept_files_from_secondary_allowed_root(tmp_path: Path) -> None:
+    corpus_root = tmp_path / "corpus"
+    session_root = tmp_path / "sessions"
+    corpus_root.mkdir()
+    session_root.mkdir()
+    workbook_path = _write_workbook(session_root)
+    tools = ExcelAgentTools(
+        allowed_root=corpus_root,
+        allowed_roots=(session_root,),
+    )
+
+    result = tools.list_sheets(workbook_path)
+
+    assert result.sheet_names == ("Grand Livre", "Plan Comptable")
+
+
 def test_tools_reject_unsupported_excel_extension(tmp_path: Path) -> None:
     source_path = tmp_path / "source.csv"
     source_path.write_text("Compte,Montant\n601,10\n", encoding="utf-8")

@@ -4,7 +4,7 @@ import TopbarIconButton from "./TopbarIconButton";
 
 export default function TopbarSearch() {
   return (
-    <div className="hidden items-center gap-6 md:flex">
+    <div className="hidden items-center gap-3 md:flex">
       <TopbarIconButton label="Rechercher">
         <SearchZoomIcon className="size-[20px]" />
       </TopbarIconButton>
