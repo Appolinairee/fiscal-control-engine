@@ -12,7 +12,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter Docker comme environnement de developpement reproductible.
 - [x] Ajouter les scripts racine `package.json` pour dev, lint, typecheck et tests API.
 - [x] Supprimer le `Makefile` API au profit de Docker + scripts racine.
-- [ ] Generer le lockfile `uv.lock` via Docker apres premier build API. Bloque localement: Docker absent.
+- [x] Generer le lockfile `uv.lock` via Docker apres premier build API.
 
 ## Coeur Metier Stable
 
@@ -244,7 +244,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Verifier le smoke LLM sans cle: sortie controlee `missing LLM_OPENAI_COMPATIBLE_API_KEY`.
 - [x] Executer les tests Agent Excel/LLM disponibles localement: `PYTHONPATH=. python3 -m pytest app/excel_agent/tests app/llm/tests -q` avec 12 tests passes.
 - [x] Verifier la compilation Python: `PYTHONPATH=. python3 -m compileall app tests`.
-- [ ] Executer lint, typecheck et tests API via Docker. Bloque localement: Docker absent.
+- [x] Executer lint, typecheck, compilation et tests API via Docker.
 
 ## CI/CD Future
 
@@ -252,7 +252,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter une CI API: lint, typecheck, tests et compilation Python.
 - [x] Ajouter le build Docker API dans la CI.
 - [ ] Ajouter une CI front quand le socle front existe.
-- [ ] Ajouter les controles de secrets et fichiers sensibles avant merge.
+- [x] Ajouter les controles de secrets avant merge via script local et CI.
 - [ ] Ajouter une strategie CD apres validation de l'environnement cible.
 
 ## Migration Infrastructure Future

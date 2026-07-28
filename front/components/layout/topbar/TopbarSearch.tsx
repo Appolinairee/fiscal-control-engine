@@ -9,7 +9,7 @@ export default function TopbarSearch() {
         <SearchZoomIcon className="size-[20px]" />
       </TopbarIconButton>
 
-      <label className="block w-[250px] cursor-text">
+      <label className="block w-[250px] mt-1 cursor-text">
         <span className="sr-only">Recherche globale</span>
         <input
           type="search"

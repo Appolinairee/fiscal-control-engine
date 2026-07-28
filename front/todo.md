@@ -23,7 +23,9 @@ Checklist operationnelle du chantier front. Les cases seront cochees au fur et a
 - [x] Structurer la topbar en composants lisibles: brand, bouton icone, profil, recherche.
 - [x] Remplacer l'avatar provisoire par la photo profil Shopinx `default-profile.jpeg`.
 - [x] Poser le shell dashboard sur fond blanc sans rounded global provisoire.
-- [ ] Preparer ensuite le layout 3 colonnes: infos/stats, agent premium dominant, donnees/graphes.
+- [x] Preparer ensuite le layout 3 colonnes: infos/stats, agent premium dominant, donnees/graphes.
+- [x] Centrer le premier bloc agent light premium dans la colonne du milieu.
+- [x] Ajouter les faux etats de travail agent sans sources detaillees pour l'instant.
 - [ ] Prevoir la table de travail en panneau bas masque.
 
 ## Integration Agent Excel

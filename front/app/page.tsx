@@ -1,5 +1,10 @@
 import DashboardShell from "@/components/layout/DashboardShell";
+import DashboardColumns from "@/components/dashboard/DashboardColumns";
 
 export default function HomePage() {
-  return <DashboardShell>{null}</DashboardShell>;
+  return (
+    <DashboardShell>
+      <DashboardColumns />
+    </DashboardShell>
+  );
 }
