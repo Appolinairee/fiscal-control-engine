@@ -6,17 +6,17 @@ export default function TopbarProfile() {
       <Image
         src="/assets/default-profile.jpeg"
         alt="Dwayne Tatum"
-        width={54}
-        height={54}
+        width={56}
+        height={56}
         priority
-        className="size-[54px] shrink-0 rounded-full object-cover object-center"
+        className="size-[56px] shrink-0 rounded-full object-cover object-center"
       />
 
-      <div className="flex h-[54px] w-[170px] min-w-0 flex-col justify-center">
-        <p className="truncate text-[16px] font-bold leading-[1.08] text-black">
+      <div className="flex h-[56px] w-[168px] min-w-0 flex-col justify-center">
+        <p className="truncate text-[17px] font-bold leading-[1.08] text-black">
           Dwayne Tatum
         </p>
-        <p className="truncate text-[13px] font-semibold leading-[1.25] text-black">
+        <p className="truncate text-[14px] font-semibold leading-[1.25] text-black">
           CEO Assistant
         </p>
       </div>

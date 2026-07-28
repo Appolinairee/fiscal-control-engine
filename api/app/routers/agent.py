@@ -66,6 +66,7 @@ async def get_agent_orchestrator(settings: SettingsDependency) -> AgentOrchestra
             tool_executor=ExcelToolExecutor(
                 tools=ExcelAgentTools(
                     allowed_root=Path(settings.excel_agent_allowed_root_path),
+                    allowed_roots=(Path(settings.agent_file_storage_root_path),),
                 ),
                 registry=create_excel_tool_registry(),
             ),

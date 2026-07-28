@@ -28,8 +28,14 @@ from app.excel_agent.domain import (
 
 
 class ExcelAgentTools:
-    def __init__(self, allowed_root: Path) -> None:
-        self._allowed_root = allowed_root.resolve()
+    def __init__(
+        self,
+        allowed_root: Path,
+        allowed_roots: tuple[Path, ...] = (),
+    ) -> None:
+        self._allowed_roots = tuple(
+            root.resolve() for root in (allowed_root, *allowed_roots)
+        )
 
     def list_sheets(self, file_path: Path) -> ExcelSheetList:
         resolved_path = self._resolve_source_path(file_path)
@@ -78,7 +84,10 @@ class ExcelAgentTools:
 
     def _resolve_source_path(self, file_path: Path) -> Path:
         resolved_path = file_path.resolve()
-        if not _is_relative_to(resolved_path, self._allowed_root):
+        if not any(
+            _is_relative_to(resolved_path, allowed_root)
+            for allowed_root in self._allowed_roots
+        ):
             raise UnsafeExcelPathError(
                 f"excel path is outside allowed root: {file_path}",
             )
