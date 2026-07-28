@@ -22,7 +22,7 @@ declare global {
   interface FetchDataOptions {
     method: "GET" | "POST" | "PUT" | "DELETE";
     body?: unknown;
-    params?: Record<string, unknown>;
+    params?: Record<string, string | null | undefined>;
     customHeaders?: HeadersInit;
   }
 

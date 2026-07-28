@@ -4,6 +4,7 @@ import pandas as pd
 
 
 def write_minified_grand_livre(directory: Path) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
     workbook_path = directory / "grand_livre_minifie.xlsx"
     ledger = pd.DataFrame(
         {

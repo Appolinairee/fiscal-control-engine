@@ -7,6 +7,8 @@ const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
     { label, name, errorMessage, required, className, register, icon, ...rest },
     ref
   ) => {
+    const registration = register ? register(name) : undefined;
+
     return (
       <div className="mb-3">
         {label && (
@@ -15,10 +17,10 @@ const InputField = React.forwardRef<HTMLInputElement, InputFieldProps>(
 
         <input
           id={name}
-          name={name}
-          ref={ref}
           {...rest}
-          {...(register ? register(name) : {})}
+          {...registration}
+          name={registration?.name || name}
+          ref={registration?.ref || ref}
           className={cn("input", errorMessage ? "input-error" : "", className)}
         />
 

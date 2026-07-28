@@ -95,14 +95,15 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les schemas Pydantic de requete/reponse de l'endpoint agent.
 - [x] Brancher l'endpoint sur l'orchestrateur agent, sans logique metier dans le router.
 - [x] Retourner une reponse structuree sans exposer les tools comme endpoints separes.
-- [ ] Retourner des erreurs HTTP explicites sans exposer fichiers, prompts complets ou donnees sensibles.
+- [x] Retourner des erreurs HTTP explicites sans exposer fichiers, prompts complets ou donnees sensibles.
 - [x] Ajouter les tests unitaires du router agent avec orchestrateur fake.
 
 ## Uploads et Sessions Future
 
-- [ ] Definir le stockage temporaire des fichiers uploades avec expiration.
-- [ ] Associer un fichier utilisateur a une session ou execution agent.
-- [ ] Scanner et valider les fichiers uploades avant tout profiling.
+- [x] Definir le stockage temporaire des fichiers uploades avec expiration.
+- [x] Configurer le chemin et la duree de vie du stockage temporaire sans secret.
+- [x] Associer un fichier utilisateur a une session ou execution agent.
+- [x] Scanner et valider les fichiers uploades avant tout stockage/profiling.
 - [ ] Bloquer l'indexation RAG des uploads tant qu'ils ne sont pas valides et anonymises.
 
 ## RAG Documentaire / Sources
@@ -182,6 +183,10 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les tests unitaires du wrapper LLM resilient: retry, echec borne, circuit breaker.
 - [x] Ajouter les tests unitaires de la factory LLM et du provider interne controle.
 - [x] Ajouter les tests unitaires du router `agent`.
+- [x] Ajouter les tests unitaires des erreurs HTTP sanitisees du router `agent`.
+- [x] Ajouter les tests unitaires du stockage temporaire de fichiers agent.
+- [x] Ajouter les tests unitaires du resolver session/fichier agent.
+- [x] Ajouter les tests unitaires du scanner/validateur Excel upload.
 - [x] Ajouter les tests unitaires sur les fixtures CSV representatives.
 - [x] Ajouter le test health.
 - [ ] Ajouter les tests unitaires du router `account_mapping` quand les routes seront reprises.
@@ -191,7 +196,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Executer les tests metier/import disponibles localement: `PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q` avec 33 tests passes.
 - [x] Executer les tests chunker disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests/test_chunker.py -q` avec 5 tests passes.
 - [x] Executer les tests RAG source disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests -q` avec 43 tests passes.
-- [x] Executer tous les tests API disponibles localement: `PYTHONPATH=. python3 -m pytest -q` avec 118 tests passes.
+- [x] Executer tous les tests API disponibles localement: `PYTHONPATH=. python3 -m pytest -q` avec 137 tests passes.
 - [x] Executer le lint API localement: `PYTHONPATH=. python3 -m ruff check app`.
 - [x] Executer le typecheck API localement: `PYTHONPATH=. python3 -m mypy app`.
 - [x] Executer les tests Agent Excel/LLM disponibles localement: `PYTHONPATH=. python3 -m pytest app/excel_agent/tests app/llm/tests -q` avec 12 tests passes.

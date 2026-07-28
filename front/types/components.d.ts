@@ -21,7 +21,7 @@ declare global {
     errorMessage?: string | null;
     required?: boolean;
     className?: string;
-    register?: UseFormRegister<unknown>;
+    register?: UseFormRegister<any>;
     icon?: ReactNode;
   }
 

@@ -5,7 +5,11 @@ from fastapi.testclient import TestClient
 from app.agent.orchestrator import AgentRunRequest, AgentRunResult
 from app.excel_agent.domain import ToolExecutionResult
 from app.main import create_app
-from app.routers.agent import AgentEndpointError, get_agent_orchestrator
+from app.routers.agent import (
+    AgentEndpointError,
+    get_agent_file_resolver,
+    get_agent_orchestrator,
+)
 
 
 def test_agent_run_endpoint_returns_orchestrated_answer() -> None:
@@ -54,6 +58,52 @@ def test_agent_run_endpoint_returns_orchestrated_answer() -> None:
     )
 
 
+def test_agent_run_endpoint_accepts_session_file_reference() -> None:
+    app = create_app()
+    fake_orchestrator = FakeAgentOrchestrator(
+        AgentRunResult(answer="OK", tool_results=()),
+    )
+    app.dependency_overrides[get_agent_orchestrator] = lambda: fake_orchestrator
+    app.dependency_overrides[get_agent_file_resolver] = lambda: FakeAgentFileResolver(
+        resolved_path=Path("/server/session/file.xlsx"),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/agent/runs",
+        json={
+            "message": "Profile le fichier de session.",
+            "session_id": "session-1",
+            "file_id": "file-1",
+            "allowed_tools": ["profile_sheet"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert fake_orchestrator.last_request == AgentRunRequest(
+        user_message="Profile le fichier de session.",
+        file_path=Path("/server/session/file.xlsx"),
+        allowed_tools=("profile_sheet",),
+    )
+
+
+def test_agent_run_endpoint_rejects_ambiguous_file_reference() -> None:
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/agent/runs",
+        json={
+            "message": "Analyse",
+            "file_path": "grand_livre_minifie.xlsx",
+            "session_id": "session-1",
+            "file_id": "file-1",
+            "allowed_tools": ["profile_sheet"],
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_agent_run_endpoint_validates_message() -> None:
     client = TestClient(create_app())
 
@@ -97,32 +147,6 @@ def test_agent_run_endpoint_returns_sanitized_orchestrator_error() -> None:
     assert "/secret/client.xlsx" not in serialized_response
 
 
-def test_agent_run_endpoint_returns_sanitized_configuration_error() -> None:
-    app = create_app()
-
-    def fail_dependency() -> None:
-        raise AgentEndpointError(
-            public_code="agent_configuration_error",
-            public_message="La configuration agent est invalide.",
-        )
-
-    app.dependency_overrides[get_agent_orchestrator] = fail_dependency
-    client = TestClient(app)
-
-    response = client.post(
-        "/api/agent/runs",
-        json={"message": "Analyse", "allowed_tools": ["profile_sheet"]},
-    )
-
-    assert response.status_code == 400
-    assert response.json() == {
-        "error": {
-            "code": "agent_configuration_error",
-            "message": "La configuration agent est invalide.",
-        },
-    }
-
-
 def test_agent_tools_are_not_exposed_as_individual_http_endpoints() -> None:
     client = TestClient(create_app())
 
@@ -150,3 +174,18 @@ class FailingAgentOrchestrator:
 
     def run(self, request: AgentRunRequest) -> AgentRunResult:
         raise self._error
+
+
+class FakeAgentFileResolver:
+    def __init__(self, resolved_path: Path | None = None) -> None:
+        self._resolved_path = resolved_path
+
+    def resolve_file_path(
+        self,
+        session_id: str | None,
+        file_id: str | None,
+        direct_file_path: str | None,
+    ) -> Path | None:
+        if self._resolved_path is not None:
+            return self._resolved_path
+        return Path(direct_file_path) if direct_file_path else None

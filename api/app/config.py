@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     llm_max_output_tokens: int = 1200
     excel_agent_allowed_root_path: str = "../docs"
     agent_max_answer_characters: int = 4_000
+    agent_file_storage_root_path: str = "../.local/agent-files"
+    agent_file_ttl_seconds: int = 86_400
+    agent_file_max_upload_bytes: int = 20_000_000
 
     model_config = SettingsConfigDict(
         env_file=".env",

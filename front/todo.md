@@ -4,10 +4,13 @@ Checklist operationnelle du chantier front. Les cases seront cochees au fur et a
 
 ## Socle Next.js
 
-- [ ] Initialiser le projet front en Next.js.
-- [ ] Ajouter les scripts de dev, lint, typecheck et tests.
-- [ ] Definir la structure de base: `app`, `components`, `services`, `types`.
-- [ ] Installer les dependances UI necessaires pour le dashboard.
+- [x] Initialiser le projet front en Next.js.
+- [x] Ajouter les scripts de dev, lint, typecheck et tests.
+- [x] Definir la structure de base: `app`, `api`, `components`, `config`, `store`, `types`, `utils`.
+- [x] Installer les dependances UI necessaires pour le dashboard.
+- [x] Ramener le socle Shopinx utile: API core, hooks generiques, utils, styles, polices, icons et composants base ciblés.
+- [ ] Surveiller l'audit npm Next/PostCSS/Sharp: derniere version stable `next@16.2.12` encore signalee par `npm audit --omit=dev`.
+- [x] Valider le socle: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`.
 
 ## Dashboard Agent
 
