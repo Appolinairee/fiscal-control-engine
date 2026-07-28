@@ -74,6 +74,7 @@ Texte valide.
 def test_find_source_corpus_files_ignores_readme_and_templates(tmp_path: Path) -> None:
     (tmp_path / "README.md").write_text("# Readme\n", encoding="utf-8")
     (tmp_path / "source-template.md").write_text("# Template\n", encoding="utf-8")
+    (tmp_path / "validation.md").write_text("# Validation\n", encoding="utf-8")
     fiscal_dir = tmp_path / "fiscal"
     fiscal_dir.mkdir()
     expected_source = fiscal_dir / "bf-ras.md"
