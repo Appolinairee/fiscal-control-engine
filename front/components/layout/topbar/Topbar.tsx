@@ -6,7 +6,7 @@ import TopbarSearch from "./TopbarSearch";
 
 export default function Topbar() {
   return (
-    <header className="w-full bg-white px-8 py-4 sm:px-12 lg:px-[72px]">
+    <header className="w-full bg-white px-8 py-2 sm:px-12 lg:px-[72px]">
       <div className="flex h-[64px] items-center justify-between gap-8">
         <TopbarBrand />
 

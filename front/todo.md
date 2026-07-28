@@ -26,6 +26,8 @@ Checklist operationnelle du chantier front. Les cases seront cochees au fur et a
 - [x] Preparer ensuite le layout 3 colonnes: infos/stats, agent premium dominant, donnees/graphes.
 - [x] Centrer le premier bloc agent light premium dans la colonne du milieu.
 - [x] Ajouter les faux etats de travail agent sans sources detaillees pour l'instant.
+- [x] Structurer le prompt agent en shell unique avec textarea blanc et barre d'etat basse integree.
+- [x] Laisser les colonnes laterales vides avec seulement les separateurs.
 - [ ] Prevoir la table de travail en panneau bas masque.
 
 ## Integration Agent Excel

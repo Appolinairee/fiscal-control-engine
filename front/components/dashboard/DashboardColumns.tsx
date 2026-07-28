@@ -4,9 +4,9 @@ import DashboardSideColumn from "@/components/dashboard/columns/DashboardSideCol
 export default function DashboardColumns() {
   return (
     <div className="grid h-full min-h-0 grid-cols-1 border-t border-black/[0.06] lg:grid-cols-[22%_50%_28%]">
-      <DashboardSideColumn title="Informations" side="left" />
+      <DashboardSideColumn side="left" />
       <AgentColumn />
-      <DashboardSideColumn title="Données" side="right" />
+      <DashboardSideColumn side="right" />
     </div>
   );
 }

@@ -10,7 +10,7 @@ export default function TopbarBrand() {
       </TopbarIconButton>
 
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex size-[54px] shrink-0 items-center justify-center rounded-full bg-black text-[25px] font-bold leading-none text-white">
+        <div className="flex size-[54px] shrink-0 items-center justify-center rounded-full bg-black text-[21px] font-bold leading-none text-white">
           <span className="translate-y-[2px] translate-x-[2px]">N°</span>
         </div>
 
