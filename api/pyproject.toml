@@ -18,6 +18,9 @@ dev = [
   "pytest>=8.4.0",
   "ruff>=0.12.0",
 ]
+embeddings = [
+  "sentence-transformers>=3.0.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "app"]

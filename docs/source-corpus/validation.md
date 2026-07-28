@@ -18,6 +18,9 @@ Une source Markdown est indexable uniquement si:
 
 - `README.md`
 - `source-template.md`
+- `validation.md`
+- `markdown-loading.md`
+- `export.md`
 
 ## Etat Actuel
 

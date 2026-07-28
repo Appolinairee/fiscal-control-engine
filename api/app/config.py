@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     ras_classification_rules_path: str = (
         "../docs/reference/ras-classification-rules.csv"
     )
+    rag_embedding_provider: str = "deterministic"
+    rag_embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     model_config = SettingsConfigDict(
         env_file=".env",

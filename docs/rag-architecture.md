@@ -79,6 +79,10 @@ Progression prevue:
 
 La baseline lexicale locale est documentee dans `docs/rag-local-retrieval.md`.
 
+Le socle embeddings/index local est documente dans `docs/rag-embeddings.md`.
+
+Les schemas Mermaid du flux RAG sont dans `docs/rag-flow-mermaid.md`.
+
 ## Reponse LLM
 
 Le LLM recoit seulement:

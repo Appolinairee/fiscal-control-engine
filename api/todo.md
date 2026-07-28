@@ -63,6 +63,17 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Creer `docs/source-corpus/` avec templates generiques et squelettes fiscaux.
 - [x] Ajouter un validateur local des sources Markdown: draft, placeholders et metadonnees manquantes.
 - [x] Verifier que les 3 squelettes fiscaux sont detectes et non indexables.
+- [x] Ajouter un loader Markdown qui transforme une source validee en blocs RAG.
+- [x] Verifier le scan reel: 3 sources Markdown, 0 indexable, 3 bloquees.
+- [x] Ajouter l'export Markdown valide vers `docs/reference/rag-source-corpus.generated.csv`.
+- [x] Verifier l'export reel: 3 sources scannees, 0 source exportee, 0 bloc exporte, 3 sources bloquees.
+- [x] Definir les contrats internes embeddings/index vectoriel sans modele externe.
+- [x] Ajouter un index vectoriel local en memoire pour tests.
+- [x] Ajouter un provider embeddings deterministe pour tests.
+- [x] Valider le pipeline chunks -> embeddings -> index vectoriel local.
+- [x] Brancher un provider embeddings local ou configurable via `sentence-transformers`.
+- [x] Ajouter une factory de provider embeddings configuree par nom.
+- [x] Documenter le flux RAG complet dans `docs/rag-flow-mermaid.md`.
 - [ ] Remplir/valider les squelettes fiscaux puis associer les 13 questions restantes.
 
 ## Couche FastAPI Future
@@ -92,6 +103,13 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les tests unitaires du retriever lexical.
 - [x] Ajouter le test de flux local RAG sans LLM.
 - [x] Ajouter les tests unitaires du validateur de sources RAG Markdown.
+- [x] Ajouter les tests unitaires du loader Markdown de sources RAG.
+- [x] Ajouter les tests unitaires de l'export Markdown vers CSV corpus RAG.
+- [x] Ajouter les tests unitaires du provider embeddings deterministe.
+- [x] Ajouter les tests unitaires de l'index vectoriel memoire.
+- [x] Ajouter le test de pipeline vectoriel local.
+- [x] Ajouter les tests unitaires du provider `sentence-transformers` optionnel.
+- [x] Ajouter les tests unitaires de la factory embeddings.
 - [x] Ajouter les tests unitaires sur les fixtures CSV representatives.
 - [x] Ajouter le test health.
 - [ ] Ajouter les tests unitaires du router `account_mapping` quand les routes seront reprises.
@@ -100,8 +118,8 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Verifier que `44910002` ressort comme compte sans libelle.
 - [x] Executer les tests metier/import disponibles localement: `PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q` avec 33 tests passes.
 - [x] Executer les tests chunker disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests/test_chunker.py -q` avec 5 tests passes.
-- [x] Executer les tests RAG source disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests -q` avec 26 tests passes.
-- [x] Executer tous les tests API disponibles localement: `PYTHONPATH=. python3 -m pytest -q` avec 60 tests passes.
+- [x] Executer les tests RAG source disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests -q` avec 43 tests passes.
+- [x] Executer tous les tests API disponibles localement: `PYTHONPATH=. python3 -m pytest -q` avec 77 tests passes.
 - [x] Executer le lint API localement: `PYTHONPATH=. python3 -m ruff check app`.
 - [x] Executer le typecheck API localement: `PYTHONPATH=. python3 -m mypy app`.
 - [x] Verifier la compilation Python: `PYTHONPATH=. python3 -m compileall app tests`.

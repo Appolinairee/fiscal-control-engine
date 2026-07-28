@@ -50,3 +50,7 @@ Etat actuel:
 Les squelettes fiscaux a completer sont dans `docs/source-corpus/fiscal/`.
 
 Le validateur local detecte actuellement 3 fichiers source, tous non indexables tant qu'ils contiennent `A COMPLETER` et `validation_status: draft`.
+
+Le chargement Markdown vers blocs RAG est documente dans `docs/source-corpus/markdown-loading.md`.
+
+L'export Markdown vers CSV est documente dans `docs/source-corpus/export.md`.

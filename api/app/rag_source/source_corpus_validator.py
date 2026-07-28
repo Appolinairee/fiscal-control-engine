@@ -17,7 +17,13 @@ REQUIRED_METADATA_FIELDS = {
     "validated_at",
 }
 METADATA_PATTERN = re.compile(r"^- `(?P<key>[^`]+)`: `(?P<value>[^`]*)`$", re.MULTILINE)
-IGNORED_SOURCE_FILENAMES = {"README.md", "source-template.md", "validation.md"}
+IGNORED_SOURCE_FILENAMES = {
+    "README.md",
+    "export.md",
+    "markdown-loading.md",
+    "source-template.md",
+    "validation.md",
+}
 
 
 @dataclass(frozen=True)

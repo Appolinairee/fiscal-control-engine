@@ -45,9 +45,15 @@ Checklist vivante du projet. Les cases seront cochees au fur et a mesure de l'av
 - [x] Echelon 3f: rendre le socle RAG generique, fiscalite comme premier domaine seulement.
 - [x] Echelon 3g: creer `docs/source-corpus/` et les templates de sources.
 - [x] Echelon 3h: ajouter un validateur local qui bloque les sources draft ou incompletes.
-- [ ] Echelon 3i: remplir/valider les squelettes fiscaux puis associer les 13 questions restantes.
+- [x] Echelon 3i: ajouter le loader Markdown pour transformer une source validee en blocs RAG.
+- [x] Echelon 3j: ajouter l'export Markdown valide vers CSV corpus RAG.
+- [ ] Echelon 3k: remplir/valider les squelettes fiscaux puis associer les 13 questions restantes.
 - [x] Echelon 4: implementer une recherche locale simple sans LLM.
-- [ ] Echelon 5: ajouter embeddings + index local.
+- [x] Echelon 5a: definir les contrats internes embeddings/index vectoriel sans modele externe.
+- [x] Echelon 5b: ajouter un index vectoriel local en memoire pour tests.
+- [x] Echelon 5c: brancher un provider embeddings local ou configurable.
+- [x] Documenter le flux RAG complet en schemas Mermaid.
+- [ ] Echelon 5d: evaluer lexical vs embeddings sur corpus valide.
 - [ ] Echelon 6: ajouter recherche hybride et reranking.
 - [ ] Echelon 7: brancher un petit modele pour explication uniquement, avec citations.
 - [ ] Echelon 8: ajouter evaluation, traces, controles de qualite et securite.
