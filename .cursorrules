@@ -1,9 +1,0 @@
-Lire et appliquer AGENTS.md avant toute modification.
-
-Pour `api/**`, lire integralement `.agents/rules/api.md`.
-Pour `front/**`, lire integralement `.agents/rules/front.md`.
-
-Les documents de `docs/` sont la source de verite du perimetre, des decisions metier et des regles fiscales.
-Le suivi des taches vit uniquement dans `todo.md` a la racine.
-
-Ne pas contourner lint, types, tests, migrations, permissions serveur ou validation des entrees.
