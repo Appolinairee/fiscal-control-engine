@@ -1,4 +1,5 @@
 import csv
+from collections.abc import Sequence
 from pathlib import Path
 
 from app.account_mapping.classifier import ClassificationRule
@@ -24,7 +25,7 @@ def load_classification_rules(source_path: Path) -> tuple[ClassificationRule, ..
         return tuple(_build_rule(row) for row in reader if row)
 
 
-def _validate_columns(fieldnames: list[str] | None) -> None:
+def _validate_columns(fieldnames: Sequence[str] | None) -> None:
     columns = set(fieldnames or [])
     missing_columns = REQUIRED_RULE_COLUMNS - columns
     if missing_columns:

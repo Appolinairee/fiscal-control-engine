@@ -8,7 +8,6 @@ from app.account_mapping.rule_loader import (
     load_classification_rules,
 )
 
-
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 

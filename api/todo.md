@@ -4,6 +4,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 
 ## Socle Python
 
+- [x] Mettre a jour les skills locales de standards: TDD, architecture, revue de code, revue adversariale.
 - [x] Initialiser `api/` comme projet Python propre.
 - [x] Ajouter la structure `app/` avec domaines, configuration et tests.
 - [x] Ajouter les dependances de base: FastAPI, Pydantic, Pandas, lecteur Excel, pytest, lint/typecheck.
@@ -41,6 +42,29 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Charger le referentiel RAS via la configuration API.
 - [x] Creer les schemas Pydantic et contrats de reponse explicites.
 
+## Domaine `rag-source`
+
+- [x] Definir le format documentaire dans `docs/rag-source-format.md`.
+- [x] Creer les objets metier typés pour les sources fiscales RAG.
+- [x] Distinguer documents anonymises et uploads utilisateur.
+- [x] Bloquer l'indexation des uploads utilisateur tant qu'ils ne sont pas valides.
+- [x] Definir le contrat interne de chunk fiscal sans route HTTP.
+- [x] Implementer le chunking par blocs article/section/paragraphe avec fenetre de mots en secours.
+- [x] Preparer 25 questions d'evaluation RAG dans `docs/reference/rag-evaluation-questions.csv`.
+- [x] Inventorier les fichiers disponibles dans `docs/rag-corpus-inventory.md`.
+- [x] Creer `docs/reference/rag-question-expectations.csv` avec 3 refus prets et 22 questions en attente de source.
+- [x] Ajouter `docs/reference/rag-mini-corpus.csv` pour les procedures internes non fiscales.
+- [x] Associer les questions internes pretes a des chunks attendus.
+- [x] Valider le mini corpus: 5 blocs, 5 chunk refs, 12 attentes pretes, 13 sources fiscales manquantes.
+- [x] Generaliser les objets internes RAG avec aliases de compatibilite `Fiscal...`.
+- [x] Ajouter une recherche lexicale locale sans LLM ni embeddings.
+- [x] Ajouter un loader CSV generique pour mini corpus RAG.
+- [x] Valider le flux local corpus -> chunks -> recherche.
+- [x] Creer `docs/source-corpus/` avec templates generiques et squelettes fiscaux.
+- [x] Ajouter un validateur local des sources Markdown: draft, placeholders et metadonnees manquantes.
+- [x] Verifier que les 3 squelettes fiscaux sont detectes et non indexables.
+- [ ] Remplir/valider les squelettes fiscaux puis associer les 13 questions restantes.
+
 ## Couche FastAPI Future
 
 - [x] Initialiser FastAPI autour du coeur metier.
@@ -61,6 +85,13 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les tests unitaires du service `account_mapping`.
 - [x] Ajouter les tests unitaires du classifieur RAS preliminaire.
 - [x] Ajouter les tests unitaires du loader de referentiel RAS.
+- [x] Ajouter les tests unitaires du domaine `rag_source`.
+- [x] Ajouter les tests unitaires du chunker fiscal.
+- [x] Ajouter les tests unitaires prouvant le support de sources RAG non fiscales.
+- [x] Ajouter les tests unitaires du loader de corpus RAG.
+- [x] Ajouter les tests unitaires du retriever lexical.
+- [x] Ajouter le test de flux local RAG sans LLM.
+- [x] Ajouter les tests unitaires du validateur de sources RAG Markdown.
 - [x] Ajouter les tests unitaires sur les fixtures CSV representatives.
 - [x] Ajouter le test health.
 - [ ] Ajouter les tests unitaires du router `account_mapping` quand les routes seront reprises.
@@ -68,6 +99,11 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Verifier que 138 comptes obtiennent un libelle depuis le plan comptable.
 - [x] Verifier que `44910002` ressort comme compte sans libelle.
 - [x] Executer les tests metier/import disponibles localement: `PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q` avec 33 tests passes.
+- [x] Executer les tests chunker disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests/test_chunker.py -q` avec 5 tests passes.
+- [x] Executer les tests RAG source disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests -q` avec 26 tests passes.
+- [x] Executer tous les tests API disponibles localement: `PYTHONPATH=. python3 -m pytest -q` avec 60 tests passes.
+- [x] Executer le lint API localement: `PYTHONPATH=. python3 -m ruff check app`.
+- [x] Executer le typecheck API localement: `PYTHONPATH=. python3 -m mypy app`.
 - [x] Verifier la compilation Python: `PYTHONPATH=. python3 -m compileall app tests`.
 - [ ] Executer lint, typecheck et tests API via Docker. Bloque localement: Docker absent.
 

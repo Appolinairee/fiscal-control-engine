@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.account_mapping.domain import (
     ClassificationStatus,
     GeneralLedgerAccount,
@@ -7,13 +9,13 @@ from app.account_mapping.domain import (
 from app.account_mapping.repository import InMemoryAccountMappingRepository
 from app.account_mapping.rule_loader import load_classification_rules
 from app.account_mapping.service import AccountMappingService
-from pathlib import Path
-
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
-def build_service(repository: InMemoryAccountMappingRepository) -> AccountMappingService:
+def build_service(
+    repository: InMemoryAccountMappingRepository,
+) -> AccountMappingService:
     return AccountMappingService(
         repository=repository,
         rules=load_classification_rules(FIXTURES_DIR / "ras_classification_rules.csv"),

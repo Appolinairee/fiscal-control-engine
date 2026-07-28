@@ -4,7 +4,6 @@ from typing import Any
 
 from app.account_mapping.domain import GeneralLedgerAccount, PlanAccount
 
-
 LEDGER_ACCOUNT_COLUMN = "Compte"
 PLAN_ACCOUNT_NUMBER_COLUMN = ""
 PLAN_ACCOUNT_LABEL_COLUMN = "Texte descr.cpt gén."

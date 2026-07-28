@@ -1,5 +1,6 @@
-import pytest
 from pathlib import Path
+
+import pytest
 
 from app.account_mapping.classifier import AccountMappingClassifier
 from app.account_mapping.domain import (
@@ -8,7 +9,6 @@ from app.account_mapping.domain import (
     RasCategory,
 )
 from app.account_mapping.rule_loader import load_classification_rules
-
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 

@@ -30,7 +30,11 @@ class AccountMappingClassifier:
     def __init__(self, rules: tuple[ClassificationRule, ...]) -> None:
         self._rules = rules
 
-    def classify(self, ledger_account: GeneralLedgerAccount, label: str) -> AccountMapping:
+    def classify(
+        self,
+        ledger_account: GeneralLedgerAccount,
+        label: str,
+    ) -> AccountMapping:
         normalized_label = label.strip()
         if not normalized_label:
             return AccountMapping(

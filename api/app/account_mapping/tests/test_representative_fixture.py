@@ -6,7 +6,6 @@ from app.account_mapping.repository import InMemoryAccountMappingRepository
 from app.account_mapping.rule_loader import load_classification_rules
 from app.account_mapping.service import AccountMappingService
 
-
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
