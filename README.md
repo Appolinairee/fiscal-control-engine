@@ -28,7 +28,7 @@ Le projet analyse les donnees du Grand Livre avant depot fiscal afin d'aider le 
 ```text
 api/      coeur Python, future API FastAPI, tests unitaires
 docs/     cahier des charges, sources Excel, referentiels metier
-front/    futur frontend
+front/    frontend Next.js
 ```
 
 ## Commandes
@@ -41,6 +41,25 @@ npm run api:dev
 npm run api:test
 npm run api:lint
 npm run api:typecheck
+```
+
+Frontend:
+
+```bash
+cd front
+npm install
+npm run dev
+```
+
+Ouvrir ensuite `http://localhost:3000`.
+
+Controles front:
+
+```bash
+cd front
+npm run lint
+npm run typecheck
+npm run build
 ```
 
 Dans cet environnement local, Docker n'est pas disponible. Les tests unitaires actuellement executables:
