@@ -136,6 +136,34 @@ def test_executor_profiles_minified_grand_livre_without_cell_values(
     assert "Compte a analyser" not in serialized_output
 
 
+def test_executor_analyzes_minified_grand_livre_without_cell_values(
+    tmp_path: Path,
+) -> None:
+    workbook_path = write_minified_grand_livre(tmp_path)
+    executor = _create_executor(tmp_path)
+
+    result = executor.execute(
+        ToolCall(
+            name="analyze_ledger",
+            arguments={
+                "file_path": str(workbook_path),
+                "sheet_name": "Grand Livre",
+            },
+        ),
+    )
+
+    assert result.ok is True
+    assert result.output["sheet_name"] == "Grand Livre"
+    assert result.output["row_count"] == 4
+    assert result.output["schema"]["is_valid"] is True
+    assert result.output["schema"]["missing_required_columns"] == []
+    assert result.output["columns"][0]["name"] == "Compte"
+    serialized_output = repr(result.output)
+    assert "Achat fournitures" not in serialized_output
+    assert "Compte a analyser" not in serialized_output
+    assert "601000" not in serialized_output
+
+
 def _create_executor(allowed_root: Path) -> ExcelToolExecutor:
     return ExcelToolExecutor(
         tools=ExcelAgentTools(allowed_root=allowed_root),

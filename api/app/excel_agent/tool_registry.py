@@ -94,5 +94,36 @@ def create_excel_tool_registry() -> AgentToolRegistry:
                     "never_return_cell_values",
                 ),
             ),
+            AgentToolDefinition(
+                name="analyze_ledger",
+                description=(
+                    "Analyse le schema et le profil d'une feuille Grand Livre "
+                    "sans exposer les valeurs des cellules."
+                ),
+                input_schema={
+                    "type": "object",
+                    "required": ["file_path", "sheet_name"],
+                    "properties": {
+                        "file_path": {"type": "string"},
+                        "sheet_name": {"type": "string"},
+                    },
+                },
+                output_schema={
+                    "type": "object",
+                    "properties": {
+                        "sheet_name": {"type": "string"},
+                        "row_count": {"type": "integer"},
+                        "column_count": {"type": "integer"},
+                        "schema": {"type": "object"},
+                        "columns": {"type": "array"},
+                    },
+                },
+                safeguards=(
+                    "allowed_file_only",
+                    "metadata_only",
+                    "ledger_schema_validation",
+                    "never_return_cell_values",
+                ),
+            ),
         ),
     )

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
@@ -32,6 +33,16 @@ class AgentToolResultResponse(BaseModel):
 class AgentRunResponse(BaseModel):
     answer: str
     tool_results: list[AgentToolResultResponse]
+
+
+class AgentFileUploadResponse(BaseModel):
+    session_id: str
+    file_id: str
+    original_filename: str
+    expires_at: datetime
+    validated_for_agent: bool
+    rag_indexable: bool
+    sheet_names: list[str]
 
 
 class AgentErrorDetail(BaseModel):

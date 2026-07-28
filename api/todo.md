@@ -61,6 +61,19 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les tests unitaires pour tool call invalide, arguments invalides et fichier non autorise.
 - [x] Ajouter un executeur interne de tools avec sorties structurees et erreurs normalisees.
 - [x] Ajouter une fixture de test Grand Livre minifiee pour l'Excel analyse en premier.
+- [x] Ajouter le tool interne `analyze_ledger` pour le rapport Grand Livre structure.
+- [x] Autoriser `analyze_ledger` par defaut dans l'endpoint agent.
+
+## Grand Livre Analyse
+
+- [x] Definir les colonnes attendues du Grand Livre minifie sans regle fiscale.
+- [x] Implementer le validateur de schema Grand Livre en TDD.
+- [x] Detecter les colonnes presentes, manquantes et optionnelles.
+- [x] Refuser le profiling metier Grand Livre si une colonne essentielle manque.
+- [x] Garder cette validation independante du LLM et de FastAPI.
+- [x] Produire un rapport interne Grand Livre: schema, lignes, colonnes, profils de colonnes.
+- [x] Verifier que le rapport Grand Livre n'expose pas de valeurs de cellules.
+- [x] Brancher le rapport Grand Livre dans un tool agent interne sans endpoint dedie.
 
 ## Orchestrateur Agent
 
@@ -70,7 +83,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter une validation de sortie pour bloquer toute decision fiscale directe du LLM.
 - [x] Ajouter le garde-fou de boucle: nombre maximal de tool calls.
 - [x] Ajouter le garde-fou de taille maximale de reponse.
-- [ ] Ajouter le garde-fou de timeout global.
+- [x] Ajouter le garde-fou de timeout global.
 - [x] Ajouter les tests unitaires de l'orchestrateur: reponse sans tool, reponse avec tool, tool refuse, fallback modele.
 
 ## LLM / Modeles Externes
@@ -84,10 +97,10 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Refuser explicitement les providers externes tant que leurs adapters ne sont pas implementes.
 - [x] Implementer le fallback ordonne: modele principal -> modele secondaire -> reponse controlee sans LLM.
 - [x] Ajouter des retries bornes et un circuit breaker simple pour les appels modeles.
-- [ ] Ajouter l'application stricte du timeout sur les appels externes reels.
-- [ ] Journaliser uniquement les metadonnees utiles: provider, modele, duree, statut, jamais les donnees sensibles.
+- [x] Ajouter l'application stricte du timeout mesure autour des appels modeles.
+- [x] Journaliser uniquement les metadonnees utiles: provider, modele, duree, statut, jamais les donnees sensibles.
 - [x] Ajouter des tests unitaires avec providers fake pour succes, fallback et timeout.
-- [ ] Ajouter des tests unitaires pour erreur provider avancee et tool call invalide.
+- [x] Ajouter des tests unitaires pour erreur provider avancee et tool call invalide.
 
 ## Endpoint Agent Future
 
@@ -104,7 +117,12 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Configurer le chemin et la duree de vie du stockage temporaire sans secret.
 - [x] Associer un fichier utilisateur a une session ou execution agent.
 - [x] Scanner et valider les fichiers uploades avant tout stockage/profiling.
-- [ ] Bloquer l'indexation RAG des uploads tant qu'ils ne sont pas valides et anonymises.
+- [x] Bloquer l'indexation RAG des uploads tant qu'ils ne sont pas valides et anonymises.
+- [x] Ajouter un service interne d'upload qui retourne `session_id`/`file_id` sans chemin serveur.
+- [x] Ajouter `python-multipart` aux dependances API pour supporter les uploads FastAPI.
+- [x] Ajouter l'endpoint multipart `POST /api/agent/files`.
+- [x] Brancher l'upload et le run agent sur le meme store temporaire en memoire.
+- [x] Tester le flux HTTP complet upload Excel -> run agent sur le Grand Livre minifie.
 
 ## RAG Documentaire / Sources
 
@@ -178,15 +196,25 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les tests unitaires de validation/execution des tool calls Agent Excel.
 - [x] Ajouter les tests unitaires de l'orchestrateur agent interne.
 - [x] Ajouter les tests unitaires des garde-fous de sortie agent.
+- [x] Ajouter les tests unitaires du timeout global orchestrateur.
 - [x] Ajouter les tests unitaires du fallback de modeles LLM.
 - [x] Ajouter les tests unitaires du registre de modeles LLM configurable.
 - [x] Ajouter les tests unitaires du wrapper LLM resilient: retry, echec borne, circuit breaker.
 - [x] Ajouter les tests unitaires de la factory LLM et du provider interne controle.
+- [x] Ajouter les tests unitaires de l'audit LLM sans contenu sensible et timeout mesure.
+- [x] Ajouter les tests unitaires de refus d'un tool call modele avec arguments invalides.
+- [x] Ajouter les tests unitaires du validateur de schema Grand Livre minifie.
+- [x] Ajouter les tests unitaires du rapport interne Grand Livre minifie.
+- [x] Ajouter les tests unitaires du tool interne `analyze_ledger`.
 - [x] Ajouter les tests unitaires du router `agent`.
 - [x] Ajouter les tests unitaires des erreurs HTTP sanitisees du router `agent`.
+- [x] Ajouter les tests unitaires des tools agent autorises par defaut.
 - [x] Ajouter les tests unitaires du stockage temporaire de fichiers agent.
 - [x] Ajouter les tests unitaires du resolver session/fichier agent.
 - [x] Ajouter les tests unitaires du scanner/validateur Excel upload.
+- [x] Ajouter les tests unitaires de la policy bloquant l'indexation RAG des uploads non anonymises.
+- [x] Ajouter les tests unitaires du service interne d'upload agent.
+- [x] Ajouter les tests unitaires du router d'upload agent.
 - [x] Ajouter les tests unitaires sur les fixtures CSV representatives.
 - [x] Ajouter le test health.
 - [ ] Ajouter les tests unitaires du router `account_mapping` quand les routes seront reprises.
@@ -196,9 +224,9 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Executer les tests metier/import disponibles localement: `PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q` avec 33 tests passes.
 - [x] Executer les tests chunker disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests/test_chunker.py -q` avec 5 tests passes.
 - [x] Executer les tests RAG source disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests -q` avec 43 tests passes.
-- [x] Executer tous les tests API disponibles localement: `PYTHONPATH=. python3 -m pytest -q` avec 137 tests passes.
-- [x] Executer le lint API localement: `PYTHONPATH=. python3 -m ruff check app`.
-- [x] Executer le typecheck API localement: `PYTHONPATH=. python3 -m mypy app`.
+- [x] Executer tous les tests API disponibles localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m pytest -q` avec 161 tests passes.
+- [x] Executer le lint API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m ruff check app tests`.
+- [x] Executer le typecheck API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m mypy app tests`.
 - [x] Executer les tests Agent Excel/LLM disponibles localement: `PYTHONPATH=. python3 -m pytest app/excel_agent/tests app/llm/tests -q` avec 12 tests passes.
 - [x] Verifier la compilation Python: `PYTHONPATH=. python3 -m compileall app tests`.
 - [ ] Executer lint, typecheck et tests API via Docker. Bloque localement: Docker absent.

@@ -36,3 +36,14 @@ class StoredAgentFile:
     validated_for_agent: bool
     anonymized_for_rag: bool
     rag_indexable: bool
+
+
+@dataclass(frozen=True)
+class AgentFileUploadResult:
+    session_id: str
+    file_id: str
+    original_filename: str
+    expires_at: datetime
+    validated_for_agent: bool
+    rag_indexable: bool
+    sheet_names: tuple[str, ...]

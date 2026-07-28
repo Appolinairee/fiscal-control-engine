@@ -1,3 +1,6 @@
+from collections.abc import Callable
+
+from app.llm.audited_model import AuditedModelProvider, ModelAuditEvent
 from app.llm.domain import ModelProvider
 from app.llm.fallback_model import FallbackModelProvider
 from app.llm.internal_provider import InternalControlledModelProvider
@@ -8,10 +11,18 @@ INTERNAL_PROVIDER = "internal"
 CONTROLLED_RESPONSE_MODEL = "controlled-response"
 
 
-def create_model_provider(provider_chain: str) -> ModelProvider:
+def create_model_provider(
+    provider_chain: str,
+    audit_sink: Callable[[ModelAuditEvent], None] | None = None,
+) -> ModelProvider:
     registry = ModelRegistry.from_chain(provider_chain)
     providers = tuple(
-        ResilientModelProvider(provider=_create_single_provider(spec))
+        ResilientModelProvider(
+            provider=AuditedModelProvider(
+                provider=_create_single_provider(spec),
+                audit_sink=audit_sink,
+            ),
+        )
         for spec in (registry.primary, *registry.fallbacks)
     )
     if len(providers) == 1:

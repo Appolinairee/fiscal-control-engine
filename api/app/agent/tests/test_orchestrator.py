@@ -124,6 +124,41 @@ def test_orchestrator_refuses_disallowed_tool_call(tmp_path: Path) -> None:
     assert model.calls == 1
 
 
+def test_orchestrator_refuses_invalid_tool_arguments(tmp_path: Path) -> None:
+    workbook_path = write_minified_grand_livre(tmp_path)
+    model = FakeModelProvider(
+        responses=(
+            ModelResponse(
+                text="",
+                provider_name="fake",
+                model_name="fake-model",
+                finish_reason="tool_calls",
+                tool_calls=(
+                    ToolCall(
+                        name="profile_sheet",
+                        arguments={"file_path": str(workbook_path)},
+                    ),
+                ),
+            ),
+        ),
+    )
+    orchestrator = _create_orchestrator(tmp_path, model)
+
+    result = orchestrator.run(
+        AgentRunRequest(
+            user_message="Profile ce Grand Livre.",
+            file_path=workbook_path,
+            allowed_tools=("profile_sheet",),
+        ),
+    )
+
+    assert result.answer == "Le tool call a ete refuse par les garde-fous."
+    assert result.tool_results[0].ok is False
+    assert result.tool_results[0].error_code == "invalid_tool_call"
+    assert "sheet_name" in str(result.tool_results[0].error_message)
+    assert model.calls == 1
+
+
 def test_orchestrator_limits_tool_calls(tmp_path: Path) -> None:
     workbook_path = write_minified_grand_livre(tmp_path)
     model = FakeModelProvider(
@@ -268,6 +303,41 @@ def test_orchestrator_blocks_oversized_answer(tmp_path: Path) -> None:
     assert result.answer == "La reponse du modele est trop longue pour etre retournee."
 
 
+def test_orchestrator_blocks_run_when_global_timeout_is_exceeded(
+    tmp_path: Path,
+) -> None:
+    orchestrator = AgentOrchestrator(
+        model_provider=FakeModelProvider(
+            responses=(
+                ModelResponse(
+                    text="Reponse arrivee trop tard.",
+                    provider_name="fake",
+                    model_name="fake-model",
+                    finish_reason="stop",
+                    tool_calls=(),
+                ),
+            ),
+        ),
+        tool_executor=ExcelToolExecutor(
+            tools=ExcelAgentTools(allowed_root=tmp_path),
+            registry=create_excel_tool_registry(),
+        ),
+        max_run_seconds=1.0,
+        monotonic=FakeClock((10.0, 12.0)),
+    )
+
+    result = orchestrator.run(
+        AgentRunRequest(
+            user_message="Analyse le fichier.",
+            file_path=None,
+            allowed_tools=("profile_sheet",),
+        ),
+    )
+
+    assert result.answer == "L'execution agent a depasse le temps autorise."
+    assert result.tool_results == ()
+
+
 def _create_orchestrator(
     allowed_root: Path,
     model_provider: ModelProvider,
@@ -302,3 +372,11 @@ class FakeModelProvider:
         if not self._responses:
             raise AssertionError("fake response is required")
         return self._responses.pop(0)
+
+
+class FakeClock:
+    def __init__(self, values: tuple[float, ...]) -> None:
+        self._values = list(values)
+
+    def __call__(self) -> float:
+        return self._values.pop(0)

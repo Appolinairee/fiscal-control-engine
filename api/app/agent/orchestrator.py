@@ -1,8 +1,11 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from time import monotonic
 from typing import Protocol
 
 from app.agent.answer_policy import AgentAnswerPolicy
+from app.agent.constants import AGENT_RUN_TIMEOUT_ANSWER
 from app.excel_agent.domain import ToolExecutionResult
 from app.excel_agent.tool_executor import ExcelToolExecutor
 from app.llm.domain import ModelMessage, ModelProvider, ModelRequest, ToolCall
@@ -33,19 +36,28 @@ class AgentOrchestrator:
         tool_executor: ExcelToolExecutor,
         max_tool_calls: int = 3,
         max_answer_characters: int = 4_000,
+        max_run_seconds: float = 60.0,
+        monotonic: Callable[[], float] = monotonic,
     ) -> None:
         if max_tool_calls < 1:
             raise ValueError("max_tool_calls must be positive")
+        if max_run_seconds <= 0:
+            raise ValueError("max_run_seconds must be positive")
         self._model_provider = model_provider
         self._tool_executor = tool_executor
         self._max_tool_calls = max_tool_calls
+        self._max_run_seconds = max_run_seconds
+        self._monotonic = monotonic
         self._answer_policy = AgentAnswerPolicy(
             max_answer_characters=max_answer_characters,
         )
 
     def run(self, request: AgentRunRequest) -> AgentRunResult:
+        started_at = self._monotonic()
         initial_model_request = _initial_model_request(request)
         initial_response = self._model_provider.generate(initial_model_request)
+        if self._has_timed_out(started_at):
+            return _timeout_result()
         if not initial_response.tool_calls:
             return AgentRunResult(
                 answer=self._answer_policy.apply(initial_response.text).answer,
@@ -56,6 +68,8 @@ class AgentOrchestrator:
             self._execute_allowed_tool_call(tool_call, request.allowed_tools)
             for tool_call in initial_response.tool_calls[: self._max_tool_calls]
         )
+        if self._has_timed_out(started_at):
+            return _timeout_result()
         if any(not result.ok for result in tool_results):
             return AgentRunResult(
                 answer="Le tool call a ete refuse par les garde-fous.",
@@ -65,6 +79,8 @@ class AgentOrchestrator:
         final_response = self._model_provider.generate(
             _final_model_request(request, tool_results),
         )
+        if self._has_timed_out(started_at):
+            return _timeout_result()
         return AgentRunResult(
             answer=self._answer_policy.apply(final_response.text).answer,
             tool_results=tool_results,
@@ -84,6 +100,13 @@ class AgentOrchestrator:
                 error_message=f"tool is not allowed: {tool_call.name}",
             )
         return self._tool_executor.execute(tool_call)
+
+    def _has_timed_out(self, started_at: float) -> bool:
+        return self._monotonic() - started_at > self._max_run_seconds
+
+
+def _timeout_result() -> AgentRunResult:
+    return AgentRunResult(answer=AGENT_RUN_TIMEOUT_ANSWER, tool_results=())
 
 
 def _initial_model_request(request: AgentRunRequest) -> ModelRequest:

@@ -4,7 +4,12 @@ from app.excel_agent.tool_registry import create_excel_tool_registry
 def test_excel_tool_registry_exposes_initial_tools() -> None:
     registry = create_excel_tool_registry()
 
-    assert registry.names == ("list_sheets", "get_columns", "profile_sheet")
+    assert registry.names == (
+        "list_sheets",
+        "get_columns",
+        "profile_sheet",
+        "analyze_ledger",
+    )
 
 
 def test_excel_tool_definitions_have_contracts_and_safeguards() -> None:
@@ -18,6 +23,17 @@ def test_excel_tool_definitions_have_contracts_and_safeguards() -> None:
     assert profile_sheet.input_schema["required"] == ["file_path", "sheet_name"]
     assert profile_sheet.output_schema["type"] == "object"
     assert "never_return_cell_values" in profile_sheet.safeguards
+
+
+def test_analyze_ledger_tool_definition_is_metadata_only() -> None:
+    registry = create_excel_tool_registry()
+
+    analyze_ledger = registry.get("analyze_ledger")
+
+    assert analyze_ledger is not None
+    assert analyze_ledger.input_schema["required"] == ["file_path", "sheet_name"]
+    assert "ledger_schema_validation" in analyze_ledger.safeguards
+    assert "never_return_cell_values" in analyze_ledger.safeguards
 
 
 def test_excel_tool_registry_rejects_unknown_tool() -> None:

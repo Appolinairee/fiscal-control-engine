@@ -1,18 +1,26 @@
 import pytest
 
+from app.llm.audited_model import ModelAuditEvent
 from app.llm.domain import ModelMessage, ModelRequest
 from app.llm.fallback_model import FallbackModelProvider
 from app.llm.model_provider_factory import create_model_provider
 
 
 def test_factory_creates_internal_controlled_provider() -> None:
-    provider = create_model_provider("internal:controlled-response")
+    audit_events: list[ModelAuditEvent] = []
+    provider = create_model_provider(
+        "internal:controlled-response",
+        audit_sink=audit_events.append,
+    )
 
     response = provider.generate(_request())
 
     assert response.provider_name == "internal"
     assert response.model_name == "controlled-response"
     assert "controles deterministes" in response.text
+    assert audit_events[0].provider_name == "internal"
+    assert audit_events[0].model_name == "controlled-response"
+    assert audit_events[0].status == "success"
 
 
 def test_factory_creates_fallback_chain() -> None:

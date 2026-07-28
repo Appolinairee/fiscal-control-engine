@@ -1,13 +1,21 @@
 from datetime import timedelta
+from functools import lru_cache
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from fastapi.responses import JSONResponse
 
 from app.agent.orchestrator import AgentOrchestrator, AgentRunRequest
+from app.agent_file.domain import (
+    AgentFileReadError,
+    AgentFileTooLargeError,
+    UnsupportedAgentFileError,
+)
 from app.agent_file.file_resolver import AgentFileResolver
 from app.agent_file.temporary_file_store import TemporaryAgentFileStore
+from app.agent_file.upload_service import AgentFileUploadService
 from app.agent_file.upload_validator import AgentExcelUploadValidator
 from app.config import Settings, get_settings
 from app.excel_agent.excel_tools import ExcelAgentTools
@@ -17,15 +25,22 @@ from app.llm.model_provider_factory import create_model_provider
 from app.schemas.agent import (
     AgentErrorDetail,
     AgentErrorResponse,
+    AgentFileUploadResponse,
     AgentRunHttpRequest,
     AgentRunResponse,
     AgentToolResultResponse,
 )
 
-DEFAULT_AGENT_TOOLS = ("list_sheets", "get_columns", "profile_sheet")
+DEFAULT_AGENT_TOOLS = ("list_sheets", "get_columns", "profile_sheet", "analyze_ledger")
 
 router = APIRouter(prefix="/agent", tags=["agent"])
-SettingsDependency = Annotated[Settings, Depends(get_settings)]
+
+
+async def get_api_settings() -> Settings:
+    return get_settings()
+
+
+SettingsDependency = Annotated[Settings, Depends(get_api_settings)]
 
 
 class AgentEndpointError(RuntimeError):
@@ -35,7 +50,7 @@ class AgentEndpointError(RuntimeError):
         super().__init__(public_code)
 
 
-def get_agent_orchestrator(settings: SettingsDependency) -> AgentOrchestrator:
+async def get_agent_orchestrator(settings: SettingsDependency) -> AgentOrchestrator:
     try:
         model_provider = create_model_provider(settings.llm_provider_chain)
         return AgentOrchestrator(
@@ -55,15 +70,46 @@ def get_agent_orchestrator(settings: SettingsDependency) -> AgentOrchestrator:
         ) from exc
 
 
-def get_agent_file_resolver(settings: SettingsDependency) -> AgentFileResolver:
-    store = TemporaryAgentFileStore(
-        storage_root=Path(settings.agent_file_storage_root_path),
-        ttl=timedelta(seconds=settings.agent_file_ttl_seconds),
-        upload_validator=AgentExcelUploadValidator(
+@lru_cache
+def _get_agent_file_store(
+    storage_root_path: str,
+    ttl_seconds: int,
+) -> TemporaryAgentFileStore:
+    return TemporaryAgentFileStore(
+        storage_root=Path(storage_root_path),
+        ttl=timedelta(seconds=ttl_seconds),
+    )
+
+
+async def get_agent_file_store(settings: SettingsDependency) -> TemporaryAgentFileStore:
+    return _get_agent_file_store(
+        storage_root_path=settings.agent_file_storage_root_path,
+        ttl_seconds=settings.agent_file_ttl_seconds,
+    )
+
+
+AgentFileStoreDependency = Annotated[
+    TemporaryAgentFileStore,
+    Depends(get_agent_file_store),
+]
+
+
+async def get_agent_file_resolver(
+    store: AgentFileStoreDependency,
+) -> AgentFileResolver:
+    return AgentFileResolver(store=store)
+
+
+async def get_agent_file_upload_service(
+    settings: SettingsDependency,
+    store: AgentFileStoreDependency,
+) -> AgentFileUploadService:
+    return AgentFileUploadService(
+        store=store,
+        validator=AgentExcelUploadValidator(
             max_file_size_bytes=settings.agent_file_max_upload_bytes,
         ),
     )
-    return AgentFileResolver(store=store)
 
 
 AgentOrchestratorDependency = Annotated[
@@ -74,6 +120,93 @@ AgentFileResolverDependency = Annotated[
     AgentFileResolver,
     Depends(get_agent_file_resolver),
 ]
+AgentFileUploadServiceDependency = Annotated[
+    AgentFileUploadService,
+    Depends(get_agent_file_upload_service),
+]
+
+
+async def _copy_upload_to_temporary_file(
+    uploaded_file: UploadFile,
+    max_upload_bytes: int,
+) -> Path:
+    source_suffix = Path(uploaded_file.filename or "").suffix
+    with NamedTemporaryFile(
+        prefix="agent-upload-",
+        suffix=source_suffix,
+        delete=False,
+    ) as temporary_file:
+        temporary_path = Path(temporary_file.name)
+        written_bytes = 0
+        while chunk := await uploaded_file.read(1024 * 1024):
+            written_bytes += len(chunk)
+            if written_bytes > max_upload_bytes:
+                temporary_path.unlink(missing_ok=True)
+                raise AgentFileTooLargeError("agent file is too large")
+            temporary_file.write(chunk)
+    return temporary_path
+
+
+@router.post(
+    "/files",
+    response_model=AgentFileUploadResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {"model": AgentErrorResponse},
+        413: {"model": AgentErrorResponse},
+    },
+)
+async def upload_agent_file(
+    settings: SettingsDependency,
+    upload_service: AgentFileUploadServiceDependency,
+    file: Annotated[UploadFile, File()],
+) -> AgentFileUploadResponse | JSONResponse:
+    temporary_path: Path | None = None
+    try:
+        temporary_path = await _copy_upload_to_temporary_file(
+            uploaded_file=file,
+            max_upload_bytes=settings.agent_file_max_upload_bytes,
+        )
+        result = upload_service.register_upload(
+            source_path=temporary_path,
+            original_filename=file.filename or "",
+        )
+    except AgentFileTooLargeError:
+        return _to_error_response(
+            AgentEndpointError(
+                public_code="agent_file_too_large",
+                public_message="Le fichier Excel agent depasse la taille autorisee.",
+            ),
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        )
+    except UnsupportedAgentFileError:
+        return _to_error_response(
+            AgentEndpointError(
+                public_code="agent_file_unsupported",
+                public_message="Le format du fichier agent n'est pas supporte.",
+            ),
+        )
+    except AgentFileReadError:
+        return _to_error_response(
+            AgentEndpointError(
+                public_code="agent_file_invalid",
+                public_message="Le fichier Excel agent est invalide ou illisible.",
+            ),
+        )
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+        await file.close()
+
+    return AgentFileUploadResponse(
+        session_id=result.session_id,
+        file_id=result.file_id,
+        original_filename=result.original_filename,
+        expires_at=result.expires_at,
+        validated_for_agent=result.validated_for_agent,
+        rag_indexable=result.rag_indexable,
+        sheet_names=list(result.sheet_names),
+    )
 
 
 @router.post(
@@ -81,7 +214,7 @@ AgentFileResolverDependency = Annotated[
     response_model=AgentRunResponse,
     responses={400: {"model": AgentErrorResponse}},
 )
-def run_agent(
+async def run_agent(
     request: AgentRunHttpRequest,
     orchestrator: AgentOrchestratorDependency,
     file_resolver: AgentFileResolverDependency,
@@ -123,11 +256,14 @@ def run_agent(
     )
 
 
-def _to_error_response(error: AgentEndpointError) -> JSONResponse:
+def _to_error_response(
+    error: AgentEndpointError,
+    status_code: int = status.HTTP_400_BAD_REQUEST,
+) -> JSONResponse:
     response = AgentErrorResponse(
         error=AgentErrorDetail(
             code=error.public_code,
             message=error.public_message,
         ),
     )
-    return JSONResponse(status_code=400, content=response.model_dump())
+    return JSONResponse(status_code=status_code, content=response.model_dump())
