@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     )
     rag_embedding_provider: str = "deterministic"
     rag_embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    llm_provider_chain: str = "internal:controlled-response"
+    llm_default_timeout_seconds: float = 30.0
+    llm_max_output_tokens: int = 1200
+    excel_agent_allowed_root_path: str = "../docs"
+    agent_max_answer_characters: int = 4_000
 
     model_config = SettingsConfigDict(
         env_file=".env",

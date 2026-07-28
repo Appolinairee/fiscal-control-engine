@@ -55,5 +55,5 @@ PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q
 - [Vue projet](docs/project-overview.md)
 - [Sources Excel](docs/excel-sources.md)
 - [Questions ouvertes](docs/open-questions.md)
-- [Plan global](todo.md)
 - [Plan API](api/todo.md)
+- [Plan Front](front/todo.md)

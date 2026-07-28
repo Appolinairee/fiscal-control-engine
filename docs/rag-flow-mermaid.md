@@ -1,6 +1,53 @@
-# Schemas Mermaid RAG
+# Schemas Mermaid Agent Excel et RAG
 
-## Vue Globale
+## Agent vs RAG
+
+```mermaid
+flowchart TD
+    U[Utilisateur] --> A[Agent LLM]
+    A --> T[Tools Excel deterministes]
+    A --> R[RAG documentaire]
+    T --> X[Lire / profiler / harmoniser Excel]
+    R --> S[Retrouver sources et citations]
+    X --> O[Resultats structures]
+    S --> O
+    O --> H[Explication et validation humaine]
+```
+
+L'agent orchestre. Le RAG apporte du contexte cite. Les tools Excel font les calculs fiables.
+
+## Chemin Excel Agent Initial
+
+```mermaid
+flowchart TD
+    A[Fichier Excel autorise] --> B[Validation chemin et extension]
+    B --> C[Tool interne list_sheets]
+    C --> D[Tool interne get_columns]
+    D --> E[Tool interne profile_sheet]
+    E --> F[Metadonnees sans valeurs cellules]
+    F --> G[Agent LLM]
+    G --> H[Explication / prochaines actions]
+    H --> I[Validation humaine]
+```
+
+## Orchestration Modeles
+
+```mermaid
+flowchart TD
+    A[Prompt utilisateur] --> B[Contrat ModelRequest]
+    B --> C[Modele principal]
+    C -->|OK| R[ModelResponse]
+    C -->|Erreur / timeout| D[Modele fallback]
+    D -->|OK| R
+    D -->|Erreur / timeout| E[Reponse controlee interne]
+    R --> F{Tool call demande ?}
+    F -->|Non| G[Reponse citee / structuree]
+    F -->|Oui| H[Validation nom + schema + fichier autorise]
+    H --> I[Tool Excel interne]
+    I --> G
+```
+
+## Vue Globale RAG
 
 ```mermaid
 flowchart TD

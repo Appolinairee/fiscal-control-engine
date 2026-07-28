@@ -42,7 +42,70 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Charger le referentiel RAS via la configuration API.
 - [x] Creer les schemas Pydantic et contrats de reponse explicites.
 
-## Domaine `rag-source`
+## Agent Excel / Tools
+
+- [x] Clarifier la cible: agent LLM avec tools Excel deterministes, RAG comme module de contexte/citations.
+- [x] Definir le contrat general d'un tool agent: nom, description, entree, sortie, erreurs, garde-fous.
+- [x] Definir les contrats des tools Excel initiaux: `list_sheets`, `get_columns`, `profile_sheet`.
+- [x] Implementer le tool interne `list_sheets` en TDD, sans route HTTP.
+- [x] Implementer le tool interne `get_columns` en TDD, sans route HTTP.
+- [x] Implementer le tool interne `profile_sheet` en TDD, sans route HTTP.
+- [x] Ajouter un registre local de tools appelables par l'agent.
+- [x] Ajouter les schemas de reponse structures des tools Excel.
+- [x] Ajouter les erreurs structurees: chemin non autorise, feuille inconnue, format non supporte.
+- [x] Ajouter les erreurs structurees pour fichier absent ou fichier Excel invalide/corrompu.
+- [x] Limiter les sorties des tools pour ne pas exposer de lignes completes ou de donnees sensibles.
+- [x] Documenter le flux Agent Excel dans `docs/rag-flow-mermaid.md`.
+- [x] Decider que les tools restent internes et ne sont pas exposes un par un en HTTP.
+- [x] Valider les tool calls avant execution: nom connu, schema valide, fichier autorise, limites respectees.
+- [x] Ajouter les tests unitaires pour tool call invalide, arguments invalides et fichier non autorise.
+- [x] Ajouter un executeur interne de tools avec sorties structurees et erreurs normalisees.
+- [x] Ajouter une fixture de test Grand Livre minifiee pour l'Excel analyse en premier.
+
+## Orchestrateur Agent
+
+- [x] Definir le contrat interne d'une execution agent: message utilisateur, fichier cible, contexte, tools autorises.
+- [x] Implementer l'orchestrateur agent en TDD: appel modele, validation tool call, execution tool, reponse finale.
+- [x] Ajouter la consigne systeme: le LLM explique, les regles deterministes decident.
+- [x] Ajouter une validation de sortie pour bloquer toute decision fiscale directe du LLM.
+- [x] Ajouter le garde-fou de boucle: nombre maximal de tool calls.
+- [x] Ajouter le garde-fou de taille maximale de reponse.
+- [ ] Ajouter le garde-fou de timeout global.
+- [x] Ajouter les tests unitaires de l'orchestrateur: reponse sans tool, reponse avec tool, tool refuse, fallback modele.
+
+## LLM / Modeles Externes
+
+- [x] Definir une interface interne `ModelProvider` independante des fournisseurs externes.
+- [x] Definir un contrat de requete modele: messages, tools autorises, temperature, limites tokens, timeout.
+- [x] Definir un contrat de reponse modele: texte, tool calls, usage, modele utilise, raison d'arret.
+- [x] Ajouter une configuration securisee des providers via variables d'environnement, sans cle dans le code.
+- [x] Ajouter un registre de modeles: principal, fallback rapide, fallback local/interne.
+- [x] Ajouter une factory de providers modeles avec fallback interne controle.
+- [x] Refuser explicitement les providers externes tant que leurs adapters ne sont pas implementes.
+- [x] Implementer le fallback ordonne: modele principal -> modele secondaire -> reponse controlee sans LLM.
+- [x] Ajouter des retries bornes et un circuit breaker simple pour les appels modeles.
+- [ ] Ajouter l'application stricte du timeout sur les appels externes reels.
+- [ ] Journaliser uniquement les metadonnees utiles: provider, modele, duree, statut, jamais les donnees sensibles.
+- [x] Ajouter des tests unitaires avec providers fake pour succes, fallback et timeout.
+- [ ] Ajouter des tests unitaires pour erreur provider avancee et tool call invalide.
+
+## Endpoint Agent Future
+
+- [x] Definir le contrat HTTP unique: `POST /api/agent/runs`.
+- [x] Ajouter les schemas Pydantic de requete/reponse de l'endpoint agent.
+- [x] Brancher l'endpoint sur l'orchestrateur agent, sans logique metier dans le router.
+- [x] Retourner une reponse structuree sans exposer les tools comme endpoints separes.
+- [ ] Retourner des erreurs HTTP explicites sans exposer fichiers, prompts complets ou donnees sensibles.
+- [x] Ajouter les tests unitaires du router agent avec orchestrateur fake.
+
+## Uploads et Sessions Future
+
+- [ ] Definir le stockage temporaire des fichiers uploades avec expiration.
+- [ ] Associer un fichier utilisateur a une session ou execution agent.
+- [ ] Scanner et valider les fichiers uploades avant tout profiling.
+- [ ] Bloquer l'indexation RAG des uploads tant qu'ils ne sont pas valides et anonymises.
+
+## RAG Documentaire / Sources
 
 - [x] Definir le format documentaire dans `docs/rag-source-format.md`.
 - [x] Creer les objets metier typés pour les sources fiscales RAG.
@@ -110,6 +173,15 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter le test de pipeline vectoriel local.
 - [x] Ajouter les tests unitaires du provider `sentence-transformers` optionnel.
 - [x] Ajouter les tests unitaires de la factory embeddings.
+- [x] Ajouter les tests unitaires des tools internes Agent Excel.
+- [x] Ajouter les tests unitaires de validation/execution des tool calls Agent Excel.
+- [x] Ajouter les tests unitaires de l'orchestrateur agent interne.
+- [x] Ajouter les tests unitaires des garde-fous de sortie agent.
+- [x] Ajouter les tests unitaires du fallback de modeles LLM.
+- [x] Ajouter les tests unitaires du registre de modeles LLM configurable.
+- [x] Ajouter les tests unitaires du wrapper LLM resilient: retry, echec borne, circuit breaker.
+- [x] Ajouter les tests unitaires de la factory LLM et du provider interne controle.
+- [x] Ajouter les tests unitaires du router `agent`.
 - [x] Ajouter les tests unitaires sur les fixtures CSV representatives.
 - [x] Ajouter le test health.
 - [ ] Ajouter les tests unitaires du router `account_mapping` quand les routes seront reprises.
@@ -119,9 +191,10 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Executer les tests metier/import disponibles localement: `PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q` avec 33 tests passes.
 - [x] Executer les tests chunker disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests/test_chunker.py -q` avec 5 tests passes.
 - [x] Executer les tests RAG source disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests -q` avec 43 tests passes.
-- [x] Executer tous les tests API disponibles localement: `PYTHONPATH=. python3 -m pytest -q` avec 77 tests passes.
+- [x] Executer tous les tests API disponibles localement: `PYTHONPATH=. python3 -m pytest -q` avec 118 tests passes.
 - [x] Executer le lint API localement: `PYTHONPATH=. python3 -m ruff check app`.
 - [x] Executer le typecheck API localement: `PYTHONPATH=. python3 -m mypy app`.
+- [x] Executer les tests Agent Excel/LLM disponibles localement: `PYTHONPATH=. python3 -m pytest app/excel_agent/tests app/llm/tests -q` avec 12 tests passes.
 - [x] Verifier la compilation Python: `PYTHONPATH=. python3 -m compileall app tests`.
 - [ ] Executer lint, typecheck et tests API via Docker. Bloque localement: Docker absent.
 
