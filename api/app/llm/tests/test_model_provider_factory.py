@@ -31,9 +31,24 @@ def test_factory_creates_fallback_chain() -> None:
     assert isinstance(provider, FallbackModelProvider)
 
 
-def test_factory_rejects_unknown_external_provider_until_adapter_exists() -> None:
+def test_factory_creates_openai_compatible_provider_with_internal_fallback() -> None:
+    provider = create_model_provider(
+        "openai-compatible:gpt-test,internal:controlled-response",
+        openai_compatible_api_key="secret-key",
+        openai_compatible_base_url="https://llm.example.test/v1",
+    )
+
+    assert isinstance(provider, FallbackModelProvider)
+
+
+def test_factory_rejects_openai_compatible_provider_without_api_key() -> None:
+    with pytest.raises(ValueError, match="api key is required"):
+        create_model_provider("openai-compatible:gpt-test")
+
+
+def test_factory_rejects_unknown_external_provider() -> None:
     with pytest.raises(ValueError, match="unsupported model provider"):
-        create_model_provider("openai:gpt-4.1-mini")
+        create_model_provider("unknown:gpt-test")
 
 
 def _request() -> ModelRequest:

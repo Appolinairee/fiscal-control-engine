@@ -17,7 +17,7 @@ from app.ledger_analysis.analysis_service import (
     LedgerAnalysisService,
 )
 from app.ledger_analysis.schema_validator import LedgerSchemaValidationError
-from app.llm.domain import ToolCall
+from app.llm.domain import ModelToolDefinition, ToolCall
 
 ToolResult = ExcelSheetList | ExcelColumnList | ExcelSheetProfile | LedgerAnalysisReport
 
@@ -30,6 +30,24 @@ class ExcelToolExecutor:
 
     def validate(self, tool_call: ToolCall) -> ValidatedToolCall:
         return self._validator.validate(tool_call)
+
+    def get_model_tool_definitions(
+        self,
+        allowed_tools: tuple[str, ...],
+    ) -> tuple[ModelToolDefinition, ...]:
+        definitions: list[ModelToolDefinition] = []
+        for tool_name in allowed_tools:
+            definition = self._validator.get_tool_definition(tool_name)
+            if definition is None:
+                continue
+            definitions.append(
+                ModelToolDefinition(
+                    name=definition.name,
+                    description=definition.description,
+                    input_schema=definition.input_schema,
+                ),
+            )
+        return tuple(definitions)
 
     def execute(self, tool_call: ToolCall) -> ToolExecutionResult:
         try:

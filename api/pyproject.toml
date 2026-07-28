@@ -5,6 +5,7 @@ description = "API FastAPI pour l'agent de revue fiscale pre-declaratif."
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.116.0",
+  "httpx>=0.28.0",
   "openpyxl>=3.1.0",
   "pandas>=2.2.0",
   "pydantic-settings>=2.10.0",
@@ -14,7 +15,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "httpx>=0.28.0",
   "mypy>=1.16.0",
   "pytest>=8.4.0",
   "ruff>=0.12.0",

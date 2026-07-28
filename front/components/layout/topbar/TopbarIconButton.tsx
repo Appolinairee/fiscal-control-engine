@@ -18,7 +18,7 @@ export default function TopbarIconButton({
       type="button"
       aria-label={label}
       className={cn(
-        "flex size-[58px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-white text-black shadow-[0_16px_34px_rgba(15,23,42,0.06)] ring-1 ring-black/[0.04] transition hover:bg-gray-50",
+        "flex size-[54px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-white text-black shadow-[0_14px_30px_rgba(15,23,42,0.055)] ring-1 ring-black/[0.045] transition hover:bg-gray-50",
         className
       )}
     >

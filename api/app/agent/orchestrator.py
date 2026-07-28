@@ -8,7 +8,13 @@ from app.agent.answer_policy import AgentAnswerPolicy
 from app.agent.constants import AGENT_RUN_TIMEOUT_ANSWER
 from app.excel_agent.domain import ToolExecutionResult
 from app.excel_agent.tool_executor import ExcelToolExecutor
-from app.llm.domain import ModelMessage, ModelProvider, ModelRequest, ToolCall
+from app.llm.domain import (
+    ModelMessage,
+    ModelProvider,
+    ModelRequest,
+    ModelToolDefinition,
+    ToolCall,
+)
 
 
 @dataclass(frozen=True)
@@ -54,7 +60,12 @@ class AgentOrchestrator:
 
     def run(self, request: AgentRunRequest) -> AgentRunResult:
         started_at = self._monotonic()
-        initial_model_request = _initial_model_request(request)
+        initial_model_request = _initial_model_request(
+            request,
+            tool_definitions=self._tool_executor.get_model_tool_definitions(
+                request.allowed_tools,
+            ),
+        )
         initial_response = self._model_provider.generate(initial_model_request)
         if self._has_timed_out(started_at):
             return _timeout_result()
@@ -109,7 +120,10 @@ def _timeout_result() -> AgentRunResult:
     return AgentRunResult(answer=AGENT_RUN_TIMEOUT_ANSWER, tool_results=())
 
 
-def _initial_model_request(request: AgentRunRequest) -> ModelRequest:
+def _initial_model_request(
+    request: AgentRunRequest,
+    tool_definitions: tuple[ModelToolDefinition, ...],
+) -> ModelRequest:
     messages = [
         ModelMessage(
             role="system",
@@ -130,6 +144,7 @@ def _initial_model_request(request: AgentRunRequest) -> ModelRequest:
         temperature=0.0,
         max_output_tokens=1200,
         timeout_seconds=30.0,
+        tool_definitions=tool_definitions,
     )
 
 

@@ -5,11 +5,15 @@ from typing import Any
 
 import httpx
 
-from app.agent.orchestrator import AgentRunRequest, AgentRunResult
+from app.agent.orchestrator import AgentOrchestrator, AgentRunRequest, AgentRunResult
 from app.agent_file.domain import AgentFileReadError, AgentFileUploadResult
 from app.config import Settings
 from app.excel_agent.domain import ToolExecutionResult
+from app.excel_agent.excel_tools import ExcelAgentTools
 from app.excel_agent.tests.fixtures import write_minified_grand_livre
+from app.excel_agent.tool_executor import ExcelToolExecutor
+from app.excel_agent.tool_registry import create_excel_tool_registry
+from app.llm.domain import ModelRequest, ModelResponse, ToolCall
 from app.main import create_app
 from app.routers.agent import (
     AgentEndpointError,
@@ -181,6 +185,67 @@ def test_agent_upload_then_run_uses_stored_session_reference(tmp_path: Path) -> 
     assert fake_orchestrator.last_request.file_path.is_file()
     assert fake_orchestrator.last_request.file_path.suffix == ".xlsx"
     assert fake_orchestrator.last_request.allowed_tools == ("analyze_ledger",)
+
+
+def test_agent_upload_then_run_executes_ledger_analysis_tool(
+    tmp_path: Path,
+) -> None:
+    app = create_app()
+    source_path = write_minified_grand_livre(tmp_path / "sources")
+    model = LedgerAnalysisToolCallingModel()
+
+    async def override_settings() -> Settings:
+        return Settings(
+            agent_file_storage_root_path=str(tmp_path / "sessions"),
+            excel_agent_allowed_root_path=str(tmp_path / "docs"),
+            agent_file_max_upload_bytes=200_000,
+        )
+
+    async def override_orchestrator() -> AgentOrchestrator:
+        return AgentOrchestrator(
+            model_provider=model,
+            tool_executor=ExcelToolExecutor(
+                tools=ExcelAgentTools(
+                    allowed_root=tmp_path / "docs",
+                    allowed_roots=(tmp_path / "sessions",),
+                ),
+                registry=create_excel_tool_registry(),
+            ),
+        )
+
+    app.dependency_overrides[get_api_settings] = override_settings
+    app.dependency_overrides[get_agent_orchestrator] = override_orchestrator
+
+    upload_response = _post_files(
+        app,
+        "/api/agent/files",
+        files={
+            "file": (
+                "grand_livre.xlsx",
+                source_path.read_bytes(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+        },
+    )
+    upload_payload = upload_response.json()
+
+    run_response = _post(
+        app,
+        "/api/agent/runs",
+        json={
+            "message": "Analyse ce Grand Livre.",
+            "session_id": upload_payload["session_id"],
+            "file_id": upload_payload["file_id"],
+        },
+    )
+
+    assert run_response.status_code == 200
+    payload = run_response.json()
+    assert payload["answer"] == "Le Grand Livre contient 4 lignes et 5 colonnes."
+    assert payload["tool_results"][0]["tool_name"] == "analyze_ledger"
+    assert payload["tool_results"][0]["ok"] is True
+    assert payload["tool_results"][0]["output"]["row_count"] == 4
+    assert payload["tool_results"][0]["output"]["schema"]["is_valid"] is True
 
 
 def test_agent_run_endpoint_rejects_ambiguous_file_reference() -> None:
@@ -404,6 +469,47 @@ class FailingAgentFileUploadService:
         original_filename: str,
     ) -> AgentFileUploadResult:
         raise self._error
+
+
+class LedgerAnalysisToolCallingModel:
+    provider_name = "fake"
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def generate(self, request: ModelRequest) -> ModelResponse:
+        self.calls += 1
+        if self.calls == 1:
+            target_path = _extract_target_path(request)
+            return ModelResponse(
+                text="",
+                provider_name="fake",
+                model_name="tool-caller",
+                finish_reason="tool_calls",
+                tool_calls=(
+                    ToolCall(
+                        name="analyze_ledger",
+                        arguments={
+                            "file_path": str(target_path),
+                            "sheet_name": "Grand Livre",
+                        },
+                    ),
+                ),
+            )
+        return ModelResponse(
+            text="Le Grand Livre contient 4 lignes et 5 colonnes.",
+            provider_name="fake",
+            model_name="tool-caller",
+            finish_reason="stop",
+            tool_calls=(),
+        )
+
+
+def _extract_target_path(request: ModelRequest) -> Path:
+    for message in request.messages:
+        if message.content.startswith("Fichier cible: "):
+            return Path(message.content.removeprefix("Fichier cible: "))
+    raise AssertionError("target file path is required")
 
 
 def _post(app: Any, path: str, json: dict[str, object]) -> httpx.Response:

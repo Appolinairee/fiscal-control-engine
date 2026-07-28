@@ -87,6 +87,9 @@ def test_orchestrator_executes_excel_tool_then_requests_final_answer(
     assert result.tool_results[0].ok is True
     assert result.tool_results[0].output["row_count"] == 4
     assert model.calls == 2
+    assert model.requests[0].tool_definitions
+    assert model.requests[0].tool_definitions[0].name == "profile_sheet"
+    assert model.requests[0].tool_definitions[0].input_schema["type"] == "object"
     assert "row_count" in model.requests[1].messages[-1].content
 
 

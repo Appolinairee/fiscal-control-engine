@@ -2,7 +2,7 @@ from types import MappingProxyType
 from typing import Any
 
 from app.excel_agent.domain import ValidatedToolCall
-from app.excel_agent.tool_registry import AgentToolRegistry
+from app.excel_agent.tool_registry import AgentToolDefinition, AgentToolRegistry
 from app.llm.domain import ToolCall
 
 
@@ -21,6 +21,9 @@ class InvalidToolArgumentsError(ToolCallValidationError):
 class ToolCallValidator:
     def __init__(self, registry: AgentToolRegistry) -> None:
         self._registry = registry
+
+    def get_tool_definition(self, tool_name: str) -> AgentToolDefinition | None:
+        return self._registry.get(tool_name)
 
     def validate(self, tool_call: ToolCall) -> ValidatedToolCall:
         definition = self._registry.get(tool_call.name)

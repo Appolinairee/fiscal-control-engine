@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     rag_embedding_provider: str = "deterministic"
     rag_embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     llm_provider_chain: str = "internal:controlled-response"
+    llm_openai_compatible_api_key: SecretStr | None = None
+    llm_openai_compatible_base_url: str = "https://api.openai.com/v1"
     llm_default_timeout_seconds: float = 30.0
     llm_max_output_tokens: int = 1200
     excel_agent_allowed_root_path: str = "../docs"

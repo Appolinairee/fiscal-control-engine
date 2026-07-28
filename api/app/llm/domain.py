@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 
 class ModelProviderError(RuntimeError):
@@ -23,12 +23,20 @@ class ToolCall:
 
 
 @dataclass(frozen=True)
+class ModelToolDefinition:
+    name: str
+    description: str
+    input_schema: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class ModelRequest:
     messages: tuple[ModelMessage, ...]
     allowed_tools: tuple[str, ...]
     temperature: float
     max_output_tokens: int
     timeout_seconds: float
+    tool_definitions: tuple[ModelToolDefinition, ...] = ()
 
 
 @dataclass(frozen=True)

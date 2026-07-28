@@ -94,11 +94,17 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter une configuration securisee des providers via variables d'environnement, sans cle dans le code.
 - [x] Ajouter un registre de modeles: principal, fallback rapide, fallback local/interne.
 - [x] Ajouter une factory de providers modeles avec fallback interne controle.
-- [x] Refuser explicitement les providers externes tant que leurs adapters ne sont pas implementes.
+- [x] Ajouter les definitions de tools dans le contrat `ModelRequest` pour les LLM externes.
+- [x] Ajouter un adapter `openai-compatible` derriere `ModelProvider`.
+- [x] Garder les providers inconnus explicitement refuses.
 - [x] Implementer le fallback ordonne: modele principal -> modele secondaire -> reponse controlee sans LLM.
 - [x] Ajouter des retries bornes et un circuit breaker simple pour les appels modeles.
 - [x] Ajouter l'application stricte du timeout mesure autour des appels modeles.
 - [x] Journaliser uniquement les metadonnees utiles: provider, modele, duree, statut, jamais les donnees sensibles.
+- [x] Configurer `LLM_OPENAI_COMPATIBLE_API_KEY` et `LLM_OPENAI_COMPATIBLE_BASE_URL` sans secret dans `.env.example`.
+- [x] Ajouter un smoke check local LLM qui retourne uniquement des metadonnees.
+- [x] Ajouter le script `api:smoke:llm` pour tester une cle locale non commitee.
+- [ ] Tester un appel reel `openai-compatible` avec une cle locale non commitee. Bloque localement: aucune cle `.env` fournie.
 - [x] Ajouter des tests unitaires avec providers fake pour succes, fallback et timeout.
 - [x] Ajouter des tests unitaires pour erreur provider avancee et tool call invalide.
 
@@ -199,6 +205,8 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les tests unitaires du timeout global orchestrateur.
 - [x] Ajouter les tests unitaires du fallback de modeles LLM.
 - [x] Ajouter les tests unitaires du registre de modeles LLM configurable.
+- [x] Ajouter les tests unitaires de l'adapter LLM `openai-compatible`.
+- [x] Ajouter les tests unitaires du smoke check LLM sans contenu sensible.
 - [x] Ajouter les tests unitaires du wrapper LLM resilient: retry, echec borne, circuit breaker.
 - [x] Ajouter les tests unitaires de la factory LLM et du provider interne controle.
 - [x] Ajouter les tests unitaires de l'audit LLM sans contenu sensible et timeout mesure.
@@ -224,9 +232,10 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Executer les tests metier/import disponibles localement: `PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q` avec 33 tests passes.
 - [x] Executer les tests chunker disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests/test_chunker.py -q` avec 5 tests passes.
 - [x] Executer les tests RAG source disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests -q` avec 43 tests passes.
-- [x] Executer tous les tests API disponibles localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m pytest -q` avec 161 tests passes.
-- [x] Executer le lint API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m ruff check app tests`.
-- [x] Executer le typecheck API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m mypy app tests`.
+- [x] Executer tous les tests API disponibles localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m pytest -q` avec 168 tests passes.
+- [x] Executer le lint API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m ruff check app tests scripts`.
+- [x] Executer le typecheck API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m mypy app tests scripts`.
+- [x] Verifier le smoke LLM sans cle: sortie controlee `missing LLM_OPENAI_COMPATIBLE_API_KEY`.
 - [x] Executer les tests Agent Excel/LLM disponibles localement: `PYTHONPATH=. python3 -m pytest app/excel_agent/tests app/llm/tests -q` avec 12 tests passes.
 - [x] Verifier la compilation Python: `PYTHONPATH=. python3 -m compileall app tests`.
 - [ ] Executer lint, typecheck et tests API via Docker. Bloque localement: Docker absent.

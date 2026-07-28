@@ -6,15 +6,15 @@ export default function TopbarSearch() {
   return (
     <div className="hidden items-center gap-6 md:flex">
       <TopbarIconButton label="Rechercher">
-        <SearchZoomIcon className="size-[21px]" />
+        <SearchZoomIcon className="size-[20px]" />
       </TopbarIconButton>
 
-      <label className="block w-[210px] cursor-text">
+      <label className="block w-[230px] cursor-text">
         <span className="sr-only">Recherche globale</span>
         <input
           type="search"
           placeholder="Start searching here ..."
-          className="w-full cursor-text bg-transparent text-[14px] text-black outline-none placeholder:text-[#b8b8b8]"
+          className="w-full cursor-text bg-transparent text-[16px] text-black outline-none placeholder:text-[#b8b8b8]"
         />
       </label>
     </div>

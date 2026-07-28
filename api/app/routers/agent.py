@@ -52,7 +52,15 @@ class AgentEndpointError(RuntimeError):
 
 async def get_agent_orchestrator(settings: SettingsDependency) -> AgentOrchestrator:
     try:
-        model_provider = create_model_provider(settings.llm_provider_chain)
+        model_provider = create_model_provider(
+            provider_chain=settings.llm_provider_chain,
+            openai_compatible_api_key=(
+                settings.llm_openai_compatible_api_key.get_secret_value()
+                if settings.llm_openai_compatible_api_key is not None
+                else None
+            ),
+            openai_compatible_base_url=settings.llm_openai_compatible_base_url,
+        )
         return AgentOrchestrator(
             model_provider=model_provider,
             tool_executor=ExcelToolExecutor(
