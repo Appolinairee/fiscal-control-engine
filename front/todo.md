@@ -32,9 +32,17 @@ Checklist operationnelle du chantier front. Les cases seront cochees au fur et a
 
 ## Integration Agent Excel
 
-- [ ] Afficher la liste des feuilles Excel.
-- [ ] Afficher les colonnes detectees.
-- [ ] Afficher le profiling d'une feuille.
+- [x] Decoupler upload et analyse: l'upload valide seulement format/taille et retourne vite.
+- [x] Pendant l'upload, afficher un etat visible: fichier en cours, poids, attente API.
+- [x] Apres upload reussi, afficher les infos utiles: nom fichier, taille, feuilles detectees.
+- [x] Afficher les erreurs upload lisibles: format refuse, fichier trop lourd, fichier illisible, API indisponible.
+- [ ] Laisser l'utilisateur choisir la feuille si plusieurs feuilles sont detectees.
+- [x] Lancer automatiquement la pre-analyse deterministe apres upload reussi, sans afficher de reponse agent.
+- [x] Conserver la pre-analyse en contexte interne sans bloc visible avant soumission.
+- [x] Garder l'agent en attente tant qu'aucun message utilisateur n'est soumis.
+- [x] A la soumission utilisateur, garder le chat fixe en bas et afficher la reponse agent en haut.
+- [x] A la soumission utilisateur, deplacer le fichier de l'input vers la conversation haute.
+- [x] Definir les scrolls: colonne agent en scroll interne, reponse en haut, prompt fixe en bas.
 - [ ] Afficher les resultats de mapping et anomalies.
 
 ## Rapports

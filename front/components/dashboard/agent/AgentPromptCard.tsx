@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import { CloseIcon, PlusIcon } from "@/public/assets/icons/icons";
+import type { AgentAttachedFile } from "@/api/agent/types";
+import { PlusIcon } from "@/public/assets/icons/icons";
 import {
   ArrowUpIcon,
   GlobalIcon,
@@ -13,45 +14,72 @@ import {
   AGENT_UPLOAD_ACCEPTED_EXTENSIONS,
   useAgentFileUpload,
 } from "@/hooks/useAgentFileUpload";
-import type { AgentAttachedFile } from "@/api/agent/types";
+import { formatFileSize } from "@/utils/ui/files";
 
+import AgentConversation from "./AgentConversation";
+import AgentFileSummary from "./AgentFileSummary";
+import AgentPromptStatusBar from "./AgentPromptStatusBar";
 import AgentToolbarButton from "./AgentToolbarButton";
-
-type AgentWorkState = "idle" | "searching";
 
 const placeholder =
   "Demandez a l'agent d'analyser un compte, une ecriture ou une retenue a la source...";
 
 export default function AgentPromptCard() {
-  const [state, setState] = useState<AgentWorkState>("idle");
+  const [prompt, setPrompt] = useState("");
   const {
     attachedFile,
+    pendingFile,
     isUploading,
-    isAnalyzing,
+    isPreAnalyzing,
+    isResponding,
     uploadError,
-    analysisResult,
+    preAnalysisError,
+    chatExchange,
     addFile,
     removeFile,
+    submitPrompt,
   } = useAgentFileUpload();
 
+  const canSubmit =
+    Boolean(prompt.trim()) &&
+    Boolean(attachedFile) &&
+    !isUploading &&
+    !isPreAnalyzing &&
+    !isResponding;
+
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    submitPrompt(prompt);
+    setPrompt("");
+  };
+
   return (
-    <div className="w-full max-w-[640px]">
-      <AgentPromptShell>
-        <AgentPromptInput
-          attachedFile={attachedFile}
-          isUploading={isUploading}
-          isAnalyzing={isAnalyzing}
-          uploadError={uploadError}
-          analysisResult={analysisResult}
-          onAddFile={addFile}
-          onRemoveFile={removeFile}
-          onSubmit={() => setState("searching")}
-        />
-        <AgentPromptStatusBar
-          state={state}
-          onStop={() => setState("idle")}
-        />
-      </AgentPromptShell>
+    <div className="flex min-h-full w-full max-w-[640px] flex-col justify-between gap-6">
+      <AgentConversation chatExchange={chatExchange} isResponding={isResponding} />
+      <div className="sticky bottom-0 z-10 mt-auto bg-white pb-2 pt-4">
+        <AgentPromptShell>
+          <AgentPromptInput
+            attachedFile={chatExchange ? null : attachedFile}
+            pendingFile={pendingFile}
+            isUploading={isUploading}
+            isPreAnalyzing={isPreAnalyzing}
+            uploadError={uploadError}
+            preAnalysisError={preAnalysisError}
+            prompt={prompt}
+            canSubmit={canSubmit}
+            onPromptChange={setPrompt}
+            onAddFile={addFile}
+            onRemoveFile={removeFile}
+            onSubmit={handleSubmit}
+          />
+          <AgentPromptStatusBar
+            attachedFile={attachedFile}
+            isUploading={isUploading}
+            isPreAnalyzing={isPreAnalyzing}
+            isResponding={isResponding}
+          />
+        </AgentPromptShell>
+      </div>
     </div>
   );
 }
@@ -66,19 +94,27 @@ function AgentPromptShell({ children }: { children: React.ReactNode }) {
 
 function AgentPromptInput({
   attachedFile,
+  pendingFile,
   isUploading,
-  isAnalyzing,
+  isPreAnalyzing,
   uploadError,
-  analysisResult,
+  preAnalysisError,
+  prompt,
+  canSubmit,
+  onPromptChange,
   onAddFile,
   onRemoveFile,
   onSubmit,
 }: {
   attachedFile: AgentAttachedFile | null;
+  pendingFile: { filename: string; sizeBytes: number } | null;
   isUploading: boolean;
-  isAnalyzing: boolean;
+  isPreAnalyzing: boolean;
   uploadError: string | null;
-  analysisResult: string | null;
+  preAnalysisError: string | null;
+  prompt: string;
+  canSubmit: boolean;
+  onPromptChange: (value: string) => void;
   onAddFile: (file: File) => void;
   onRemoveFile: () => void;
   onSubmit: () => void;
@@ -97,52 +133,45 @@ function AgentPromptInput({
         <span className="sr-only">Prompt Fiscal Agent</span>
         <textarea
           rows={2}
+          value={prompt}
           placeholder={placeholder}
+          onChange={(event) => onPromptChange(event.target.value)}
           className="block min-h-[60px] w-full resize-none bg-transparent text-[16px] leading-6 text-black outline-none placeholder:text-black/45"
         />
       </label>
 
       {isUploading && (
-        <div className="mb-3 flex w-fit items-center gap-2 rounded-full bg-[#edf4f7] px-3 py-2 text-[13px] font-medium text-[#31424c]">
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl bg-[#edf4f7] px-3 py-2 text-[13px] font-medium text-[#31424c]">
           <span className="size-3 animate-spin rounded-full border-2 border-[#31424c]/25 border-t-[#31424c]" />
-          Chargement du fichier Excel…
+          <span>Envoi du fichier Excel vers l&apos;API</span>
+          {pendingFile && (
+            <span className="text-[#667781]">
+              {pendingFile.filename} · {formatFileSize(pendingFile.sizeBytes)}
+            </span>
+          )}
         </div>
       )}
 
-      {!isUploading && isAnalyzing && (
+      {!isUploading && isPreAnalyzing && (
         <div className="mb-3 flex w-fit items-center gap-2 rounded-full bg-[#edf4f7] px-3 py-2 text-[13px] font-medium text-[#31424c]">
           <span className="size-3 animate-spin rounded-full border-2 border-[#31424c]/25 border-t-[#31424c]" />
-          Analyse du Grand Livre…
+          Pre-analyse deterministe du Grand Livre…
         </div>
       )}
 
-      {!isUploading && !isAnalyzing && uploadError && (
+      {!isUploading && !isPreAnalyzing && uploadError && (
         <div className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700">
           {uploadError}
         </div>
       )}
 
-      {!isUploading && !isAnalyzing && attachedFile && (
-        <div className="mb-3 flex w-fit items-center gap-2 rounded-full bg-[#edf4f7] py-1.5 pl-3 pr-2 text-[13px] font-medium text-[#31424c]">
-          <span className="text-emerald-600">✓</span>
-          <span className="max-w-[220px] truncate">{attachedFile.filename}</span>
-          <span className="text-[#31424c]/55">
-            {attachedFile.sheetNames.length} feuille(s)
-          </span>
-          <button
-            type="button"
-            aria-label="Retirer le fichier"
-            onClick={onRemoveFile}
-            className="flex size-5 cursor-pointer items-center justify-center rounded-full text-[#31424c]/60 transition hover:bg-black/[0.06] hover:text-[#31424c]"
-          >
-            <CloseIcon className="size-3" />
-          </button>
-        </div>
+      {!isUploading && attachedFile && (
+        <AgentFileSummary attachedFile={attachedFile} onRemoveFile={onRemoveFile} />
       )}
 
-      {!isAnalyzing && analysisResult && (
-        <div className="mb-3 rounded-xl bg-[#f4f8fa] px-3 py-2 text-[13px] leading-5 text-[#40515c]">
-          {analysisResult}
+      {!isPreAnalyzing && preAnalysisError && (
+        <div className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-[13px] font-medium text-amber-800">
+          {preAnalysisError}
         </div>
       )}
 
@@ -179,49 +208,11 @@ function AgentPromptInput({
         <button
           type="button"
           aria-label="Envoyer"
+          disabled={!canSubmit}
           onClick={onSubmit}
-          className="flex size-[46px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-[#40515c] text-white shadow-[0_14px_28px_rgba(64,81,92,0.20)] transition hover:bg-[#34434c]"
+          className="flex size-[46px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-[#40515c] text-white shadow-[0_14px_28px_rgba(64,81,92,0.20)] transition hover:bg-[#34434c] disabled:cursor-default disabled:bg-[#9bacb5] disabled:shadow-none"
         >
           <ArrowUpIcon className="size-[20px]" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function AgentPromptStatusBar({
-  state,
-  onStop,
-}: {
-  state: AgentWorkState;
-  onStop: () => void;
-}) {
-  const isSearching = state === "searching";
-
-  return (
-    <div className="flex min-h-[56px] items-center justify-between gap-4 bg-[#c0d4dd] px-4 py-3 rounded-t-[18px] rounded-b-[30px] mt-2">
-      <div className="flex items-center gap-2">
-        <span className="rounded-full bg-[#dce5ea] px-3 py-2 text-[12px] font-semibold text-[#25313a] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
-          Fiscal Agent
-        </span>
-        <span className="rounded-full bg-white/72 px-3 py-2 text-[12px] font-semibold text-[#50606b] shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
-          {isSearching ? "Analyse en cours" : "Pret a analyser"}
-        </span>
-      </div>
-
-      <div className="flex min-w-0 items-center gap-3">
-        <p className="hidden truncate text-[12px] font-medium text-[#6d7b86] sm:block">
-          {isSearching
-            ? "Recherche dans les donnees connectees..."
-            : "En attente d'une question fiscale..."}
-        </p>
-        <button
-          type="button"
-          disabled={!isSearching}
-          onClick={onStop}
-          className="cursor-pointer rounded-full bg-[#d4dee4] px-4 py-2 text-[12px] font-semibold text-[#53616b] transition hover:bg-[#c7d3da] disabled:cursor-default disabled:opacity-55"
-        >
-          Stop
         </button>
       </div>
     </div>

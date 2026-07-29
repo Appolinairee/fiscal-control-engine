@@ -2,8 +2,14 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import { uploadAgentFile } from "@/api/agent/uploadAgentFile";
-import { runAgentAnalysis } from "@/api/agent/runAgentAnalysis";
-import type { AgentAttachedFile, AgentErrorResponse } from "@/api/agent/types";
+import { runAgentChat, runAgentPreAnalysis } from "@/api/agent/runAgentAnalysis";
+import type {
+  AgentAttachedFile,
+  AgentChatExchange,
+  AgentErrorResponse,
+  AgentRunResponse,
+  LedgerPreAnalysis,
+} from "@/api/agent/types";
 import { ApiError } from "@/utils/api/errors";
 import useAlertStore, { AlertTypeStatus } from "@/store/alertStore";
 
@@ -18,11 +24,14 @@ const hasAcceptedExtension = (filename: string): boolean => {
 
 export const useAgentFileUpload = () => {
   const [attachedFile, setAttachedFile] = useState<AgentAttachedFile | null>(null);
+  const [pendingFile, setPendingFile] = useState<{ filename: string; sizeBytes: number } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+  const [preAnalysis, setPreAnalysis] = useState<LedgerPreAnalysis | null>(null);
+  const [preAnalysisError, setPreAnalysisError] = useState<string | null>(null);
+  const [chatExchange, setChatExchange] = useState<AgentChatExchange | null>(null);
   const { setAlert } = useAlertStore();
 
-  const analysisMutation = useMutation({
+  const preAnalysisMutation = useMutation({
     mutationFn: ({
       sessionId,
       fileId,
@@ -31,32 +40,77 @@ export const useAgentFileUpload = () => {
       sessionId: string;
       fileId: string;
       sheetName: string;
-    }) => runAgentAnalysis(sessionId, fileId, sheetName),
+    }) => runAgentPreAnalysis(sessionId, fileId, sheetName),
     onSuccess: (response) => {
-      setAnalysisResult(response.answer);
+      setPreAnalysisError(null);
+      setPreAnalysis(extractLedgerPreAnalysis(response));
     },
     onError: () => {
-      setUploadError("Le fichier est chargé, mais son analyse a échoué.");
+      setPreAnalysis(null);
+      setPreAnalysisError("La pre-analyse deterministe a echoue.");
     },
   });
 
-  const mutation = useMutation({
-    mutationFn: uploadAgentFile,
+  const chatMutation = useMutation({
+    mutationFn: ({
+      message,
+      sessionId,
+      fileId,
+      sheetName,
+    }: {
+      message: string;
+      sessionId?: string;
+      fileId?: string;
+      sheetName?: string;
+    }) => runAgentChat({ message, sessionId, fileId, sheetName }),
     onSuccess: (response) => {
+      setChatExchange((currentExchange) =>
+        currentExchange
+          ? {
+              ...currentExchange,
+              answer: response.answer,
+            }
+          : null
+      );
+    },
+    onError: () => {
+      setChatExchange((currentExchange) =>
+        currentExchange
+          ? {
+              ...currentExchange,
+              answer: "La reponse agent a echoue. Vous pouvez reformuler ou relancer.",
+            }
+          : null
+      );
+    },
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: uploadAgentFile,
+    onSuccess: (response, file) => {
+      const selectedSheetName = response.sheet_names[0] || "";
       setUploadError(null);
+      setPendingFile(null);
+      setPreAnalysis(null);
+      setPreAnalysisError(null);
+      setChatExchange(null);
       setAttachedFile({
         sessionId: response.session_id,
         fileId: response.file_id,
         filename: response.original_filename,
+        sizeBytes: file.size,
+        expiresAt: response.expires_at,
         sheetNames: response.sheet_names,
+        selectedSheetName,
       });
-      analysisMutation.mutate({
+      preAnalysisMutation.mutate({
         sessionId: response.session_id,
         fileId: response.file_id,
-        sheetName: response.sheet_names[0],
+        sheetName: selectedSheetName,
       });
     },
     onError: (error: unknown) => {
+      setPendingFile(null);
       const message =
         error instanceof ApiError
           ? (error.data as AgentErrorResponse | undefined)?.error?.message
@@ -73,7 +127,9 @@ export const useAgentFileUpload = () => {
 
   const addFile = (file: File) => {
     setUploadError(null);
-    setAnalysisResult(null);
+    setPreAnalysis(null);
+    setPreAnalysisError(null);
+    setChatExchange(null);
     if (!hasAcceptedExtension(file.name)) {
       const message =
         "Seuls les fichiers Excel (.xlsx, .xlsm) sont acceptes pour le moment.";
@@ -85,24 +141,108 @@ export const useAgentFileUpload = () => {
       return;
     }
 
-    mutation.mutate(file);
+    setPendingFile({ filename: file.name, sizeBytes: file.size });
+    uploadMutation.mutate(file);
   };
 
   const removeFile = () => {
     setAttachedFile(null);
+    setPendingFile(null);
     setUploadError(null);
-    setAnalysisResult(null);
-    analysisMutation.reset();
-    mutation.reset();
+    setPreAnalysis(null);
+    setPreAnalysisError(null);
+    setChatExchange(null);
+    preAnalysisMutation.reset();
+    chatMutation.reset();
+    uploadMutation.reset();
+  };
+
+  const submitPrompt = (message: string) => {
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) return;
+
+    if (!attachedFile) {
+      const errorMessage = "Ajoutez d'abord un fichier Excel.";
+      setUploadError(errorMessage);
+      setAlert({
+        content: errorMessage,
+        type: AlertTypeStatus.ERROR,
+      });
+      return;
+    }
+
+    setChatExchange({
+      question: trimmedMessage,
+      attachedFile,
+      preAnalysis,
+      answer: null,
+    });
+    chatMutation.mutate({
+      message: trimmedMessage,
+      sessionId: attachedFile.sessionId,
+      fileId: attachedFile.fileId,
+      sheetName: attachedFile.selectedSheetName,
+    });
   };
 
   return {
     attachedFile,
-    isUploading: mutation.isPending,
-    isAnalyzing: analysisMutation.isPending,
+    pendingFile,
+    isUploading: uploadMutation.isPending,
+    isPreAnalyzing: preAnalysisMutation.isPending,
+    isResponding: chatMutation.isPending,
     uploadError,
-    analysisResult,
+    preAnalysis,
+    preAnalysisError,
+    chatExchange,
     addFile,
     removeFile,
+    submitPrompt,
   };
+};
+
+const extractLedgerPreAnalysis = (response: AgentRunResponse): LedgerPreAnalysis | null => {
+  const result = response.tool_results.find(
+    (toolResult) => toolResult.tool_name === "analyze_ledger" && toolResult.ok
+  );
+  const output = result?.output;
+  if (!isLedgerAnalysisOutput(output)) return null;
+
+  return {
+    sheetName: output.sheet_name,
+    rowCount: output.row_count,
+    columnCount: output.column_count,
+    schema: output.schema,
+    columns: output.columns,
+  };
+};
+
+const isLedgerAnalysisOutput = (
+  output: Record<string, unknown> | undefined
+): output is {
+  sheet_name: string;
+  row_count: number;
+  column_count: number;
+  schema: LedgerPreAnalysis["schema"];
+  columns: LedgerPreAnalysis["columns"];
+} => {
+  if (!output) return false;
+  return (
+    typeof output.sheet_name === "string" &&
+    typeof output.row_count === "number" &&
+    typeof output.column_count === "number" &&
+    isLedgerSchema(output.schema) &&
+    Array.isArray(output.columns)
+  );
+};
+
+const isLedgerSchema = (schema: unknown): schema is LedgerPreAnalysis["schema"] => {
+  if (!schema || typeof schema !== "object") return false;
+  const candidate = schema as Partial<LedgerPreAnalysis["schema"]>;
+  return (
+    typeof candidate.is_valid === "boolean" &&
+    Array.isArray(candidate.present_columns) &&
+    Array.isArray(candidate.missing_required_columns) &&
+    Array.isArray(candidate.optional_columns)
+  );
 };
