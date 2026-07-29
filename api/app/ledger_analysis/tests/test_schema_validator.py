@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
+
 from app.excel_agent.excel_tools import ExcelAgentTools
 from app.excel_agent.tests.fixtures import write_minified_grand_livre
 from app.ledger_analysis.schema_validator import LedgerSchemaValidator

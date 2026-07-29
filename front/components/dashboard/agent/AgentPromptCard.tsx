@@ -24,7 +24,6 @@ const placeholder =
 
 export default function AgentPromptCard() {
   const [state, setState] = useState<AgentWorkState>("idle");
-  const isSearching = state === "searching";
   const {
     attachedFile,
     isUploading,
@@ -86,7 +85,6 @@ function AgentPromptInput({
 }) {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    console.log("[AgentFile] Sélection du fichier", file);
     event.target.value = "";
     if (file) {
       onAddFile(file);
@@ -163,7 +161,6 @@ function AgentPromptInput({
               aria-label="Ajouter un fichier Excel"
               accept={AGENT_UPLOAD_ACCEPTED_EXTENSIONS.join(",")}
               disabled={isUploading}
-              onClick={() => console.log("[AgentFile] Clic sur le bouton +")}
               onChange={handleFileChange}
               className="absolute inset-0 size-full cursor-pointer opacity-0 disabled:cursor-default"
             />

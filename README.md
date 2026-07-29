@@ -1,18 +1,23 @@
-# Bank Files Harmonizer
+# Sahel Fiscal Review Agent
 
-Agent de revue fiscale pre-declaratif pour harmoniser les fichiers comptables et preparer des controles TVA/RAS deterministes.
+Agent de revue fiscale pre-declaratif pour analyser les donnees comptables OHADA, avec un premier perimetre Burkina Faso.
 
 ## Objectif
 
-Le projet analyse les donnees du Grand Livre avant depot fiscal afin d'aider le responsable financier a reperer les incoherences possibles. Le systeme ne remplace ni le cabinet fiscal ni la decision humaine.
+Le projet aide le responsable financier a analyser le Grand Livre avant depot fiscal, reperer les incoherences possibles et preparer des controles TVA/RAS explicables.
 
-## Strategie Actuelle
+Le systeme ne remplace ni le cabinet fiscal ni la decision humaine. Les controles fiscaux restent deterministes; le LLM explique, mais ne decide pas.
 
-- Construire d'abord le coeur metier interne.
-- Garder FastAPI, PostgreSQL, RAG et frontend autour du coeur, pas dedans.
-- Limiter Pandas a l'import et a la normalisation des fichiers.
-- Garder les tests unitaires comme priorite immediate.
-- Reporter les routes API avancees et les tests d'integration.
+## Etat Actuel
+
+- API FastAPI structuree.
+- Upload Excel securise pour le Grand Livre.
+- Agent Excel avec tools internes: `list_sheets`, `get_columns`, `profile_sheet`, `analyze_ledger`.
+- Analyse du Grand Livre minifie: schema, lignes, colonnes, valeurs manquantes, sans exposer les valeurs de cellules.
+- Mapping comptes Grand Livre + Plan comptable.
+- Import `account_mapping` depuis fichiers configures cote serveur.
+- Adapter LLM `openai-compatible` avec fallback interne.
+- CI API: secrets, lint, typecheck, tests, compilation Python, build Docker.
 
 ## Stack Cible
 
@@ -26,14 +31,14 @@ Le projet analyse les donnees du Grand Livre avant depot fiscal afin d'aider le 
 ## Structure
 
 ```text
-api/      coeur Python, future API FastAPI, tests unitaires
-docs/     cahier des charges, sources Excel, referentiels metier
+api/      API FastAPI, agent, tools Excel, mapping, tests
+docs/     cahier des charges, schemas, sources Excel, referentiels
 front/    frontend Next.js
 ```
 
 ## Commandes
 
-Les commandes projet passent par Docker et les scripts racine:
+Commandes API via Docker:
 
 ```bash
 npm run api:build
@@ -41,6 +46,8 @@ npm run api:dev
 npm run api:test
 npm run api:lint
 npm run api:typecheck
+npm run api:compile
+npm run secrets:check
 ```
 
 Frontend:
@@ -62,16 +69,19 @@ npm run typecheck
 npm run build
 ```
 
-Dans cet environnement local, Docker n'est pas disponible. Les tests unitaires actuellement executables:
+Verification locale API sans Docker:
 
 ```bash
 cd api
-PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q
+PYTHONPATH=. python3 -m pytest -q
+PYTHONPATH=. python3 -m ruff check app tests scripts
+PYTHONPATH=. python3 -m mypy app tests scripts
 ```
 
 ## Documents Utiles
 
 - [Vue projet](docs/project-overview.md)
+- [Etat actuel du projet](docs/current-project-state.md)
 - [Sources Excel](docs/excel-sources.md)
 - [Questions ouvertes](docs/open-questions.md)
 - [Plan API](api/todo.md)

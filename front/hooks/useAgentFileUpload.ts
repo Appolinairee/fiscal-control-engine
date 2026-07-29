@@ -33,11 +33,9 @@ export const useAgentFileUpload = () => {
       sheetName: string;
     }) => runAgentAnalysis(sessionId, fileId, sheetName),
     onSuccess: (response) => {
-      console.log("[AgentFile] Analyse terminée", response);
       setAnalysisResult(response.answer);
     },
-    onError: (error: unknown) => {
-      console.error("[AgentFile] Échec de l'analyse", error);
+    onError: () => {
       setUploadError("Le fichier est chargé, mais son analyse a échoué.");
     },
   });
@@ -45,7 +43,6 @@ export const useAgentFileUpload = () => {
   const mutation = useMutation({
     mutationFn: uploadAgentFile,
     onSuccess: (response) => {
-      console.log("[AgentFile] Upload réussi", response);
       setUploadError(null);
       setAttachedFile({
         sessionId: response.session_id,
@@ -60,7 +57,6 @@ export const useAgentFileUpload = () => {
       });
     },
     onError: (error: unknown) => {
-      console.error("[AgentFile] Échec de l'upload", error);
       const message =
         error instanceof ApiError
           ? (error.data as AgentErrorResponse | undefined)?.error?.message
@@ -78,15 +74,9 @@ export const useAgentFileUpload = () => {
   const addFile = (file: File) => {
     setUploadError(null);
     setAnalysisResult(null);
-    console.log("[AgentFile] Validation du fichier", {
-      nom: file.name,
-      taille: file.size,
-      type: file.type,
-    });
     if (!hasAcceptedExtension(file.name)) {
       const message =
         "Seuls les fichiers Excel (.xlsx, .xlsm) sont acceptes pour le moment.";
-      console.warn("[AgentFile] Extension refusée", file.name);
       setAlert({
         content: message,
         type: AlertTypeStatus.ERROR,

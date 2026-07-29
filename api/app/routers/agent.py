@@ -21,8 +21,8 @@ from app.config import Settings, get_settings
 from app.excel_agent.excel_tools import ExcelAgentTools
 from app.excel_agent.tool_executor import ExcelToolExecutor
 from app.excel_agent.tool_registry import create_excel_tool_registry
-from app.llm.model_provider_factory import create_model_provider
 from app.llm.domain import ToolCall
+from app.llm.model_provider_factory import create_model_provider
 from app.schemas.agent import (
     AgentErrorDetail,
     AgentErrorResponse,
