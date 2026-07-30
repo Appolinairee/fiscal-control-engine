@@ -1,10 +1,14 @@
 from pathlib import Path
 
+from app.agent_file.persistent_file_store import PersistentAgentFileStore
 from app.agent_file.temporary_file_store import TemporaryAgentFileStore
 
 
 class AgentFileResolver:
-    def __init__(self, store: TemporaryAgentFileStore) -> None:
+    def __init__(
+        self,
+        store: TemporaryAgentFileStore | PersistentAgentFileStore,
+    ) -> None:
         self._store = store
 
     def resolve_file_path(

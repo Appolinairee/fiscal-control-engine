@@ -19,15 +19,20 @@ from app.agent.orchestrator import (
     AgentRunResult,
 )
 from app.agent_file.domain import (
+    AgentFileExpiredError,
+    AgentFileMissingError,
     AgentFileReadError,
     AgentFileTooLargeError,
     UnsupportedAgentFileError,
 )
 from app.agent_file.file_resolver import AgentFileResolver
+from app.agent_file.persistent_file_store import PersistentAgentFileStore
 from app.agent_file.temporary_file_store import TemporaryAgentFileStore
 from app.agent_file.upload_service import AgentFileUploadService
 from app.agent_file.upload_validator import AgentExcelUploadValidator
+from app.agent_persistence.repository import SqlAlchemyAgentRepository
 from app.config import Settings, get_settings
+from app.database import Base, create_database_engine, create_session_factory
 from app.excel_agent.excel_tools import ExcelAgentTools
 from app.excel_agent.tool_executor import ExcelToolExecutor
 from app.excel_agent.tool_registry import create_excel_tool_registry
@@ -118,6 +123,27 @@ async def get_agent_orchestrator(settings: SettingsDependency) -> AgentOrchestra
 
 
 @lru_cache
+def _get_agent_repository(database_url: str) -> SqlAlchemyAgentRepository:
+    engine = create_database_engine(database_url)
+    Base.metadata.create_all(engine)
+    return SqlAlchemyAgentRepository(session_factory=create_session_factory(engine))
+
+
+async def get_agent_repository(
+    settings: SettingsDependency,
+) -> SqlAlchemyAgentRepository | None:
+    if not settings.database_url:
+        return None
+    return _get_agent_repository(settings.database_url)
+
+
+AgentRepositoryDependency = Annotated[
+    SqlAlchemyAgentRepository | None,
+    Depends(get_agent_repository),
+]
+
+
+@lru_cache
 def _get_agent_file_store(
     storage_root_path: str,
     ttl_seconds: int,
@@ -135,27 +161,28 @@ async def get_agent_file_store(settings: SettingsDependency) -> TemporaryAgentFi
     )
 
 
-AgentFileStoreDependency = Annotated[
-    TemporaryAgentFileStore,
-    Depends(get_agent_file_store),
-]
-
-
 async def get_agent_file_resolver(
-    store: AgentFileStoreDependency,
+    settings: SettingsDependency,
+    repository: AgentRepositoryDependency,
 ) -> AgentFileResolver:
+    store = _build_agent_file_store(settings=settings, repository=repository)
     return AgentFileResolver(store=store)
 
 
 async def get_agent_file_upload_service(
     settings: SettingsDependency,
-    store: AgentFileStoreDependency,
+    repository: AgentRepositoryDependency,
 ) -> AgentFileUploadService:
+    validator = AgentExcelUploadValidator(
+        max_file_size_bytes=settings.agent_file_max_upload_bytes,
+    )
     return AgentFileUploadService(
-        store=store,
-        validator=AgentExcelUploadValidator(
-            max_file_size_bytes=settings.agent_file_max_upload_bytes,
+        store=_build_agent_file_store(
+            settings=settings,
+            repository=repository,
+            upload_validator=validator,
         ),
+        validator=validator,
     )
 
 
@@ -265,6 +292,7 @@ async def run_agent(
     request: AgentRunHttpRequest,
     orchestrator: AgentOrchestratorDependency,
     file_resolver: AgentFileResolverDependency,
+    repository: AgentRepositoryDependency,
 ) -> AgentRunResponse | JSONResponse:
     try:
         file_path = file_resolver.resolve_file_path(
@@ -278,13 +306,17 @@ async def run_agent(
                 file_path=file_path,
             ),
         )
-    except ValueError:
-        return _to_error_response(
-            AgentEndpointError(
-                public_code="agent_file_reference_error",
-                public_message="La reference fichier agent est invalide.",
-            ),
+        _save_agent_run_if_configured(
+            request=request,
+            result=result,
+            repository=repository,
         )
+    except AgentFileExpiredError:
+        return _to_error_response(_file_expired_error())
+    except AgentFileMissingError:
+        return _to_error_response(_file_missing_error())
+    except ValueError:
+        return _to_error_response(_file_reference_error())
     except AgentEndpointError as exc:
         return _to_error_response(exc)
     return _to_agent_run_response(result)
@@ -299,6 +331,7 @@ async def stream_agent_run(
     request: AgentRunHttpRequest,
     orchestrator: AgentOrchestratorDependency,
     file_resolver: AgentFileResolverDependency,
+    repository: AgentRepositoryDependency,
 ) -> StreamingResponse | JSONResponse:
     try:
         file_path = file_resolver.resolve_file_path(
@@ -310,17 +343,34 @@ async def stream_agent_run(
             request=request,
             file_path=file_path,
         )
+    except AgentFileExpiredError:
+        return _to_error_response(_file_expired_error())
+    except AgentFileMissingError:
+        return _to_error_response(_file_missing_error())
     except ValueError:
-        return _to_error_response(
-            AgentEndpointError(
-                public_code="agent_file_reference_error",
-                public_message="La reference fichier agent est invalide.",
-            ),
-        )
+        return _to_error_response(_file_reference_error())
 
     return StreamingResponse(
-        _stream_agent_run(orchestrator, agent_request),
+        _stream_agent_run(orchestrator, agent_request, request, repository),
         media_type="application/x-ndjson",
+    )
+
+
+def _build_agent_file_store(
+    settings: Settings,
+    repository: SqlAlchemyAgentRepository | None,
+    upload_validator: AgentExcelUploadValidator | None = None,
+) -> TemporaryAgentFileStore | PersistentAgentFileStore:
+    if repository is None:
+        return _get_agent_file_store(
+            storage_root_path=settings.agent_file_storage_root_path,
+            ttl_seconds=settings.agent_file_ttl_seconds,
+        )
+    return PersistentAgentFileStore(
+        storage_root=Path(settings.agent_file_storage_root_path),
+        repository=repository,
+        ttl=timedelta(seconds=settings.agent_file_ttl_seconds),
+        upload_validator=upload_validator,
     )
 
 
@@ -352,6 +402,42 @@ def _effective_allowed_tools(requested_tools: list[str]) -> tuple[str, ...]:
     if not requested_tools:
         return DEFAULT_AGENT_TOOLS
     return tuple(dict.fromkeys((*requested_tools, *DEFAULT_AGENT_TOOLS)))
+
+
+def _save_agent_run_if_configured(
+    request: AgentRunHttpRequest,
+    result: AgentRunResult,
+    repository: SqlAlchemyAgentRepository | None,
+) -> None:
+    if repository is None:
+        return
+    repository.save_run(
+        user_message=request.message,
+        result=result,
+        session_id=request.session_id,
+        file_id=request.file_id,
+    )
+
+
+def _file_reference_error() -> AgentEndpointError:
+    return AgentEndpointError(
+        public_code="agent_file_reference_error",
+        public_message="La reference fichier agent est invalide.",
+    )
+
+
+def _file_missing_error() -> AgentEndpointError:
+    return AgentEndpointError(
+        public_code="file_missing",
+        public_message="Le fichier agent est introuvable ou a ete supprime.",
+    )
+
+
+def _file_expired_error() -> AgentEndpointError:
+    return AgentEndpointError(
+        public_code="file_expired",
+        public_message="Le fichier agent a expire. Veuillez le televerser a nouveau.",
+    )
 
 
 def _to_agent_run_response(result: AgentRunResult) -> AgentRunResponse:
@@ -391,12 +477,19 @@ def _to_agent_run_event_response(event: AgentRunEvent) -> AgentRunEventResponse:
 def _stream_agent_run(
     orchestrator: AgentOrchestrator,
     request: AgentRunRequest,
+    http_request: AgentRunHttpRequest,
+    repository: SqlAlchemyAgentRepository | None,
 ) -> Iterator[str]:
     queue: Queue[object] = Queue()
 
     def run_worker() -> None:
         try:
             result = orchestrator.run(request, event_sink=queue.put)
+            _save_agent_run_if_configured(
+                request=http_request,
+                result=result,
+                repository=repository,
+            )
             for answer_chunk in _split_answer_for_streaming(result.answer):
                 queue.put(
                     AgentRunEvent(

@@ -70,17 +70,73 @@ def _mentions_data_quality(message: str) -> bool:
 
 
 def _ledger_query_filters(message: str) -> dict[str, object]:
-    account = _extract_account_filter(message)
-    if account is None:
-        return {}
-    return {"account": account}
+    filters: dict[str, object] = {}
+    account = _extract_number_after_label(message, ("compte", "account"))
+    if account is not None:
+        filters["account"] = account
+    period = _extract_number_after_label(message, ("periode", "period"))
+    if period is not None:
+        filters["period"] = period
+    tax_code = _extract_tax_code(message)
+    if tax_code is not None:
+        filters["tax_code"] = tax_code
+    vendor = _extract_number_after_label(message, ("fournisseur", "vendor"))
+    if vendor is not None:
+        filters["vendor"] = vendor
+    customer = _extract_number_after_label(message, ("client", "customer"))
+    if customer is not None:
+        filters["customer"] = customer
+    filters.update(_extract_amount_range(message))
+    return filters
 
 
-def _extract_account_filter(message: str) -> str | None:
-    account_match = re.search(r"\b(?:compte|account)\s+([0-9]{5,12})\b", message)
-    if account_match is not None:
-        return account_match.group(1)
+def _extract_number_after_label(
+    message: str,
+    labels: tuple[str, ...],
+) -> str | None:
+    label_pattern = "|".join(re.escape(label) for label in labels)
+    match = re.search(rf"\b(?:{label_pattern})\s+([0-9]{{1,12}})\b", message)
+    if match is not None:
+        return match.group(1)
     return None
+
+
+def _extract_tax_code(message: str) -> str | None:
+    match = re.search(r"\b(?:tva|taxe|tax)\s+([a-zA-Z][a-zA-Z0-9_-]{0,10})\b", message)
+    if match is None:
+        return None
+    return match.group(1).upper()
+
+
+def _extract_amount_range(message: str) -> dict[str, object]:
+    between_match = re.search(
+        r"\bmontant\s+(?:entre|de)\s+([0-9][0-9 .,_]*)\s+"
+        r"(?:et|a|à|-)\s+([0-9][0-9 .,_]*)\b",
+        message,
+    )
+    if between_match is not None:
+        return {
+            "amount_min": _to_float(between_match.group(1)),
+            "amount_max": _to_float(between_match.group(2)),
+        }
+    filters: dict[str, object] = {}
+    min_match = re.search(
+        r"\bmontant\s+(?:min|minimum|superieur a|supérieur à)\s+([0-9][0-9 .,_]*)",
+        message,
+    )
+    if min_match is not None:
+        filters["amount_min"] = _to_float(min_match.group(1))
+    max_match = re.search(
+        r"\bmontant\s+(?:max|maximum|inferieur a|inférieur à)\s+([0-9][0-9 .,_]*)",
+        message,
+    )
+    if max_match is not None:
+        filters["amount_max"] = _to_float(max_match.group(1))
+    return filters
+
+
+def _to_float(value: str) -> float:
+    return float(value.replace(" ", "").replace("_", "").replace(",", "."))
 
 
 def _mentions_tax_candidates(message: str) -> bool:

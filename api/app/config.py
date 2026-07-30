@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     agent_file_storage_root_path: str = "../.local/agent-files"
     agent_file_ttl_seconds: int = 86_400
     agent_file_max_upload_bytes: int = 20_000_000
+    database_url: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

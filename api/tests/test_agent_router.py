@@ -12,7 +12,12 @@ from app.agent.orchestrator import (
     AgentRunRequest,
     AgentRunResult,
 )
-from app.agent_file.domain import AgentFileReadError, AgentFileUploadResult
+from app.agent_file.domain import (
+    AgentFileExpiredError,
+    AgentFileMissingError,
+    AgentFileReadError,
+    AgentFileUploadResult,
+)
 from app.config import Settings
 from app.excel_agent.domain import ToolExecutionResult
 from app.excel_agent.excel_tools import ExcelAgentTools
@@ -561,6 +566,52 @@ def test_agent_file_upload_endpoint_returns_sanitized_upload_error() -> None:
     assert "/secret/client.xlsx" not in response.text
 
 
+def test_agent_run_endpoint_returns_file_expired_code() -> None:
+    app = create_app()
+    fake_resolver = FailingAgentFileResolver(AgentFileExpiredError("expired"))
+
+    async def override_file_resolver() -> FailingAgentFileResolver:
+        return fake_resolver
+
+    app.dependency_overrides[get_agent_file_resolver] = override_file_resolver
+
+    response = _post(
+        app,
+        "/api/agent/runs",
+        json={
+            "message": "Analyse",
+            "session_id": "session-1",
+            "file_id": "file-1",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "file_expired"
+
+
+def test_agent_run_endpoint_returns_file_missing_code() -> None:
+    app = create_app()
+    fake_resolver = FailingAgentFileResolver(AgentFileMissingError("missing"))
+
+    async def override_file_resolver() -> FailingAgentFileResolver:
+        return fake_resolver
+
+    app.dependency_overrides[get_agent_file_resolver] = override_file_resolver
+
+    response = _post(
+        app,
+        "/api/agent/runs",
+        json={
+            "message": "Analyse",
+            "session_id": "session-1",
+            "file_id": "file-1",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "file_missing"
+
+
 class FakeAgentOrchestrator:
     def __init__(
         self,
@@ -604,6 +655,19 @@ class FakeAgentFileResolver:
         if self._resolved_path is not None:
             return self._resolved_path
         return Path(direct_file_path) if direct_file_path else None
+
+
+class FailingAgentFileResolver:
+    def __init__(self, error: Exception) -> None:
+        self._error = error
+
+    def resolve_file_path(
+        self,
+        session_id: str | None,
+        file_id: str | None,
+        direct_file_path: str | None,
+    ) -> Path | None:
+        raise self._error
 
 
 class FakeAgentFileUploadService:

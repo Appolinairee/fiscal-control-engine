@@ -1,0 +1,119 @@
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.agent.orchestrator import AgentRunEvent, AgentRunResult
+from app.agent_file.domain import AgentFileExpiredError
+from app.agent_file.persistent_file_store import PersistentAgentFileStore
+from app.agent_persistence.models import (
+    AgentMessageModel,
+    AgentRunEventModel,
+    AgentToolResultModel,
+)
+from app.agent_persistence.repository import SqlAlchemyAgentRepository
+from app.database import Base, create_database_engine, create_session_factory
+from app.excel_agent.domain import ToolExecutionResult
+from app.excel_agent.tests.fixtures import write_minified_grand_livre
+
+
+def test_persistent_file_store_resolves_after_store_recreation(tmp_path: Path) -> None:
+    source_path = write_minified_grand_livre(tmp_path / "sources")
+    session_factory = _create_session_factory(tmp_path)
+    repository = SqlAlchemyAgentRepository(
+        session_factory=session_factory,
+        now=lambda: datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    store = PersistentAgentFileStore(
+        storage_root=tmp_path / "sessions",
+        repository=repository,
+        now=lambda: datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    stored_file = store.store(source_path, original_filename="grand_livre.xlsx")
+    reloaded_store = PersistentAgentFileStore(
+        storage_root=tmp_path / "sessions",
+        repository=repository,
+        now=lambda: datetime(2026, 1, 1, 1, tzinfo=UTC),
+    )
+
+    resolved_file = reloaded_store.resolve(
+        session_id=stored_file.session_id,
+        file_id=stored_file.file_id,
+    )
+
+    assert resolved_file == stored_file
+    assert resolved_file.path.is_file()
+
+
+def test_persistent_file_store_raises_expired_error(tmp_path: Path) -> None:
+    source_path = write_minified_grand_livre(tmp_path / "sources")
+    current_time = datetime(2026, 1, 1, tzinfo=UTC)
+    session_factory = _create_session_factory(tmp_path)
+    repository = SqlAlchemyAgentRepository(
+        session_factory=session_factory,
+        now=lambda: current_time,
+    )
+    store = PersistentAgentFileStore(
+        storage_root=tmp_path / "sessions",
+        repository=repository,
+        ttl=timedelta(hours=1),
+        now=lambda: current_time,
+    )
+    stored_file = store.store(source_path, original_filename="grand_livre.xlsx")
+    current_time = datetime(2026, 1, 1, 2, tzinfo=UTC)
+
+    with pytest.raises(AgentFileExpiredError):
+        store.resolve(session_id=stored_file.session_id, file_id=stored_file.file_id)
+
+
+def test_repository_persists_run_messages_events_and_tool_results(
+    tmp_path: Path,
+) -> None:
+    session_factory = _create_session_factory(tmp_path)
+    repository = SqlAlchemyAgentRepository(
+        session_factory=session_factory,
+        now=lambda: datetime(2026, 1, 1, tzinfo=UTC),
+    )
+
+    run_id = repository.save_run(
+        user_message="Montre le compte 44585100.",
+        result=AgentRunResult(
+            answer="20 écritures retournées.",
+            provider_name="groq",
+            model_name="llama",
+            execution_events=(
+                AgentRunEvent(
+                    event_type="tool_finished",
+                    title="Analyse terminée",
+                    message="20 écritures retournées.",
+                    status="completed",
+                    tool_name="query_ledger_entries",
+                ),
+            ),
+            tool_results=(
+                ToolExecutionResult(
+                    tool_name="query_ledger_entries",
+                    ok=True,
+                    output={"total_matches": 203, "entries": []},
+                ),
+            ),
+        ),
+    )
+
+    with session_factory() as session:
+        messages = session.query(AgentMessageModel).filter_by(run_id=run_id).all()
+        events = session.query(AgentRunEventModel).filter_by(run_id=run_id).all()
+        tool_results = (
+            session.query(AgentToolResultModel).filter_by(run_id=run_id).all()
+        )
+
+    assert [message.role for message in messages] == ["user", "assistant"]
+    assert events[0].tool_name == "query_ledger_entries"
+    assert tool_results[0].output["total_matches"] == 203
+
+
+def _create_session_factory(tmp_path: Path) -> sessionmaker[Session]:
+    engine = create_database_engine(f"sqlite:///{tmp_path / 'agent.db'}")
+    Base.metadata.create_all(engine)
+    return create_session_factory(engine)

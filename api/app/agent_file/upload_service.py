@@ -1,14 +1,24 @@
 from pathlib import Path
+from typing import Protocol
 
-from app.agent_file.domain import AgentFileUploadResult, AgentFileValidationReport
+from app.agent_file.domain import (
+    AgentFileUploadResult,
+    AgentFileValidationReport,
+    StoredAgentFile,
+)
 from app.agent_file.temporary_file_store import TemporaryAgentFileStore
 from app.agent_file.upload_validator import AgentExcelUploadValidator
+
+
+class AgentFileStore(Protocol):
+    def store(self, source_path: Path, original_filename: str) -> StoredAgentFile:
+        pass
 
 
 class AgentFileUploadService:
     def __init__(
         self,
-        store: TemporaryAgentFileStore,
+        store: AgentFileStore | TemporaryAgentFileStore,
         validator: AgentExcelUploadValidator | None = None,
     ) -> None:
         self._store = store

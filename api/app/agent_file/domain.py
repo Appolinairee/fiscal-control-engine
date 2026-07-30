@@ -19,6 +19,14 @@ class AgentFileTooLargeError(AgentFileError):
     pass
 
 
+class AgentFileMissingError(AgentFileError):
+    pass
+
+
+class AgentFileExpiredError(AgentFileError):
+    pass
+
+
 @dataclass(frozen=True)
 class AgentFileValidationReport:
     file_size_bytes: int

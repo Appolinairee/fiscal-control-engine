@@ -330,6 +330,49 @@ def test_executor_queries_real_anonymized_account_with_stable_payload() -> None:
     assert result.output["message"] == "Écritures trouvées pour les filtres fournis."
 
 
+def test_executor_queries_real_anonymized_account_and_period() -> None:
+    docs_root = _docs_root()
+    workbook_path = docs_root / "GL_anonymise_2500.xlsx"
+    executor = _create_executor(docs_root)
+
+    result = executor.execute(
+        ToolCall(
+            name="query_ledger_entries",
+            arguments={
+                "file_path": str(workbook_path),
+                "sheet_name": "Sheet1",
+                "filters": {"account": "44585100", "period": "12"},
+                "page": 1,
+                "page_size": 20,
+            },
+        ),
+    )
+
+    assert result.ok is True
+    assert result.output["total_matches"] == 15
+    assert result.output["filters"] == {"account": "44585100", "period": "12"}
+
+
+def test_executor_rejects_invalid_query_filter() -> None:
+    docs_root = _docs_root()
+    workbook_path = docs_root / "GL_anonymise_2500.xlsx"
+    executor = _create_executor(docs_root)
+
+    result = executor.execute(
+        ToolCall(
+            name="query_ledger_entries",
+            arguments={
+                "file_path": str(workbook_path),
+                "sheet_name": "Sheet1",
+                "filters": {"unknown": "value"},
+            },
+        ),
+    )
+
+    assert result.ok is False
+    assert result.error_code == "invalid_filter"
+
+
 def test_executor_calculates_ledger_metrics_without_cell_values() -> None:
     docs_root = _docs_root()
     workbook_path = docs_root / "GL_anonymise_2500.xlsx"

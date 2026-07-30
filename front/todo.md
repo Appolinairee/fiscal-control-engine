@@ -69,6 +69,12 @@ Checklist operationnelle du chantier front. Les cases seront cochees au fur et a
 - [x] Formatter les reponses agent en Markdown simple: paragraphes, titres et listes.
 - [x] Ne pas afficher les métriques deterministes comme une reponse agent.
 - [ ] Afficher les resultats de mapping et anomalies.
+- [ ] Afficher les resultats `query_ledger_entries` depuis le payload structure, pas depuis le texte LLM.
+- [ ] Afficher un resume court pour les ecritures: total trouve, page affichee, taille page.
+- [ ] Afficher les ecritures dans un tableau base sur `returned_columns` et `entries`.
+- [ ] Ajouter la pagination `query_ledger_entries`: precedent, suivant, page courante, total.
+- [ ] Afficher un etat vide clair quand `total_matches` vaut 0.
+- [ ] Garder la reponse texte agent courte quand un tableau structure est disponible.
 
 ## Rapports
 

@@ -10,11 +10,14 @@ dependencies = [
   "pandas>=2.2.0",
   "pydantic-settings>=2.10.0",
   "python-multipart>=0.0.20",
+  "psycopg[binary]>=3.2.0",
+  "SQLAlchemy>=2.0.0",
   "uvicorn[standard]>=0.35.0",
 ]
 
 [project.optional-dependencies]
 dev = [
+  "alembic>=1.13.0",
   "mypy>=1.16.0,<2.0",
   "pytest>=8.4.0",
   "ruff>=0.12.0",

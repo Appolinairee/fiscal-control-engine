@@ -29,6 +29,16 @@ from app.ledger_analysis.schema_classifier import LedgerSchemaClassification
 from app.ledger_analysis.schema_validator import LedgerSchemaValidationError
 from app.llm.domain import ModelToolDefinition, ToolCall
 
+QUERY_FILTER_NAMES = {
+    "account",
+    "period",
+    "tax_code",
+    "vendor",
+    "customer",
+    "amount_min",
+    "amount_max",
+}
+
 ToolResult = (
     ExcelSheetList
     | ExcelColumnList
@@ -125,10 +135,17 @@ class ExcelToolExecutor:
                     ),
                 )
             elif validated_call.name == "query_ledger_entries":
+                filters = _query_filters(validated_call.arguments.get("filters"))
+                if filters is None:
+                    return _failed(
+                        tool_call.name,
+                        "invalid_filter",
+                        "query filter is invalid",
+                    )
                 result = self._ledger_analysis_service.query_entries(
                     Path(str(validated_call.arguments["file_path"])),
                     sheet_name=str(validated_call.arguments["sheet_name"]),
-                    filters=_optional_dict(validated_call.arguments.get("filters")),
+                    filters=filters,
                     page=_optional_positive_int(
                         validated_call.arguments.get("page"),
                         default=1,
@@ -412,6 +429,20 @@ def _optional_dict(raw_value: object) -> dict[str, object]:
     if not isinstance(raw_value, dict):
         return {}
     return dict(raw_value)
+
+
+def _query_filters(raw_value: object) -> dict[str, object] | None:
+    filters = _optional_dict(raw_value)
+    for filter_name, filter_value in filters.items():
+        if filter_name not in QUERY_FILTER_NAMES:
+            return None
+        if filter_name in {"amount_min", "amount_max"}:
+            if not isinstance(filter_value, int | float):
+                return None
+            continue
+        if not isinstance(filter_value, str):
+            return None
+    return filters
 
 
 def _optional_string(raw_value: object) -> str | None:
