@@ -207,14 +207,14 @@ def test_orchestrator_runs_default_excel_analysis_when_model_skips_tool_call(
     assert result.tool_results[0].ok is True
     assert result.tool_results[0].tool_name == "analyze_ledger"
     assert result.provider_name == "internal"
-    assert result.model_name == "deterministic-excel-analysis"
+    assert result.model_name == "controlled-response"
     assert [event.event_type for event in result.execution_events] == [
         "run_started",
         "file_checked",
-        "model_requested",
         "tool_requested",
         "tool_started",
         "tool_finished",
+        "model_requested",
         "answer_ready",
     ]
     assert model.calls == 1
@@ -334,6 +334,56 @@ def test_orchestrator_routes_account_question_to_ledger_query(tmp_path: Path) ->
     assert model.calls == 1
     assert model.requests[0].allowed_tools == ()
     assert "44585100" in model.requests[0].messages[-1].content
+
+
+def test_orchestrator_routes_general_excel_explanation_to_analysis_tools(
+    tmp_path: Path,
+) -> None:
+    workbook_path = write_minified_grand_livre(tmp_path)
+    model = FakeModelProvider(
+        responses=(
+            ModelResponse(
+                text="Le fichier est un Grand Livre de 4 lignes avec des contrôles.",
+                provider_name="fake",
+                model_name="fake-model",
+                finish_reason="stop",
+                tool_calls=(),
+            ),
+        ),
+    )
+    orchestrator = _create_orchestrator(tmp_path, model)
+
+    result = orchestrator.run(
+        AgentRunRequest(
+            user_message="Explique-moi cet Excel.",
+            file_path=workbook_path,
+            sheet_name="Grand Livre",
+            allowed_tools=(
+                "list_sheets",
+                "analyze_ledger",
+                "calculate_ledger_metrics",
+                "aggregate_ledger",
+                "detect_data_quality_issues",
+                "detect_tax_candidates",
+            ),
+        ),
+    )
+
+    assert [tool_result.tool_name for tool_result in result.tool_results] == [
+        "analyze_ledger",
+        "calculate_ledger_metrics",
+        "aggregate_ledger",
+        "detect_data_quality_issues",
+        "detect_tax_candidates",
+    ]
+    assert model.calls == 1
+    final_context = model.requests[0].messages[-1].content
+    assert "analyze_ledger" in final_context
+    assert "calculate_ledger_metrics" in final_context
+    assert "aggregate_ledger" in final_context
+    assert result.answer == (
+        "Le fichier est un Grand Livre de 4 lignes avec des contrôles."
+    )
 
 
 def test_orchestrator_refuses_disallowed_tool_call(tmp_path: Path) -> None:

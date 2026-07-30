@@ -36,6 +36,45 @@ def test_tool_router_selects_tax_candidates_tool_for_tax_intent() -> None:
     ]
 
 
+def test_tool_router_selects_global_excel_analysis_for_explanation_intent() -> None:
+    tool_calls = route_deterministic_tool_calls(
+        DeterministicToolRouteRequest(
+            user_message="Explique-moi cet Excel.",
+            file_path=Path("ledger.xlsx"),
+            sheet_name="Grand Livre",
+            allowed_tools=(
+                "list_sheets",
+                "analyze_ledger",
+                "calculate_ledger_metrics",
+                "aggregate_ledger",
+                "detect_data_quality_issues",
+                "detect_tax_candidates",
+            ),
+        ),
+    )
+
+    assert [tool_call.name for tool_call in tool_calls] == [
+        "analyze_ledger",
+        "calculate_ledger_metrics",
+        "aggregate_ledger",
+        "detect_data_quality_issues",
+        "detect_tax_candidates",
+    ]
+    assert tool_calls[1].arguments["metrics"] == [
+        "sum",
+        "count",
+        "average",
+        "min",
+        "max",
+    ]
+    assert tool_calls[2].arguments["group_by"] == [
+        "account",
+        "period",
+        "document_type",
+        "tax_code",
+    ]
+
+
 def test_tool_router_builds_query_filter_for_account_question() -> None:
     tool_calls = route_deterministic_tool_calls(
         DeterministicToolRouteRequest(

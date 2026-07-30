@@ -1,4 +1,5 @@
 import AISidebar from "@/components/dashboard/sidebar/AISidebar";
+import AnalyticsColumn from "@/components/dashboard/analytics/AnalyticsColumn";
 
 type DashboardSideColumnProps = {
   side: "left" | "right";
@@ -17,6 +18,7 @@ export default function DashboardSideColumn({
       ].join(" ")}
     >
       {side === "left" && <AISidebar />}
+      {side === "right" && <AnalyticsColumn />}
     </aside>
   );
 }

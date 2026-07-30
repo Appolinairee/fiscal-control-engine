@@ -40,6 +40,8 @@ def route_deterministic_tool_calls(
         requested_tools.append("detect_data_quality_issues")
     if _mentions_tax_candidates(message):
         requested_tools.append("detect_tax_candidates")
+    if _mentions_global_excel_explanation(message):
+        return _global_excel_analysis_tool_calls(request)
 
     return tuple(
         ToolCall(
@@ -51,6 +53,78 @@ def route_deterministic_tool_calls(
         )
         for tool_name in requested_tools
         if tool_name in request.allowed_tools
+    )
+
+
+def _mentions_global_excel_explanation(message: str) -> bool:
+    return any(
+        keyword in message
+        for keyword in (
+            "explique moi cet excel",
+            "explique cet excel",
+            "explique le fichier",
+            "decris cet excel",
+            "decris le fichier",
+            "analyse cet excel",
+            "analyse ce fichier",
+            "que contient cet excel",
+            "que contient le fichier",
+            "resume cet excel",
+            "resume le fichier",
+        )
+    )
+
+
+def _global_excel_analysis_tool_calls(
+    request: DeterministicToolRouteRequest,
+) -> tuple[ToolCall, ...]:
+    tool_calls = (
+        ToolCall(
+            name="analyze_ledger",
+            arguments={
+                "file_path": str(request.file_path),
+                "sheet_name": request.sheet_name,
+            },
+        ),
+        ToolCall(
+            name="calculate_ledger_metrics",
+            arguments={
+                "file_path": str(request.file_path),
+                "sheet_name": request.sheet_name,
+                "metrics": ["sum", "count", "average", "min", "max"],
+                "top_by": "account",
+                "top_limit": 8,
+            },
+        ),
+        ToolCall(
+            name="aggregate_ledger",
+            arguments={
+                "file_path": str(request.file_path),
+                "sheet_name": request.sheet_name,
+                "group_by": ["account", "period", "document_type", "tax_code"],
+                "limit": 10,
+            },
+        ),
+        ToolCall(
+            name="detect_data_quality_issues",
+            arguments={
+                "file_path": str(request.file_path),
+                "sheet_name": request.sheet_name,
+            },
+        ),
+        ToolCall(
+            name="detect_tax_candidates",
+            arguments={
+                "file_path": str(request.file_path),
+                "sheet_name": request.sheet_name,
+                "limit": 8,
+            },
+        ),
+    )
+    return tuple(
+        tool_call
+        for tool_call in tool_calls
+        if tool_call.name in request.allowed_tools
     )
 
 
@@ -158,4 +232,4 @@ def _mentions_tax_candidates(message: str) -> bool:
 def _normalize_for_intent(value: str) -> str:
     without_accents = normalize("NFKD", value)
     ascii_value = without_accents.encode("ascii", "ignore").decode("ascii")
-    return " ".join(ascii_value.lower().split())
+    return " ".join(re.sub(r"[^a-zA-Z0-9]+", " ", ascii_value.lower()).split())

@@ -88,6 +88,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter `detect_data_quality_issues`: detecter colonnes vides, valeurs manquantes critiques, montants incoherents, devises multiples, tiers absents, dates/periodes suspectes.
 - [x] Ajouter `detect_tax_candidates`: identifier les candidats TVA/RAS a partir des comptes, libelles, tiers, codes TVA et montants, sans decision fiscale finale.
 - [x] Ajouter un routeur deterministe de tools: choisir le ou les tools selon l'intention utilisateur avant appel LLM, puis tester chaque intention separement.
+- [x] Router une demande generale du type `Explique-moi cet Excel` vers une analyse globale multi-tools avant appel LLM.
 - [x] Ajouter des tests de consistance tool par tool: fixture Excel anonymisee, sortie attendue stable, absence de donnees sensibles, limites de lignes respectees.
 
 ## Orchestrateur Agent
@@ -257,6 +258,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les tests unitaires du tool interne `classify_ledger_schema`.
 - [x] Ajouter les tests unitaires des tools internes `detect_data_quality_issues` et `detect_tax_candidates`.
 - [x] Ajouter les tests unitaires du routeur deterministe de tools agent.
+- [x] Ajouter les tests unitaires du routage `Explique-moi cet Excel` vers `analyze_ledger`, `calculate_ledger_metrics`, `aggregate_ledger`, `detect_data_quality_issues` et `detect_tax_candidates`.
 - [x] Ajouter les tests unitaires du router `agent`.
 - [x] Ajouter les tests unitaires des erreurs HTTP sanitisees du router `agent`.
 - [x] Ajouter les tests unitaires des tools agent autorises par defaut.
@@ -276,7 +278,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Executer les tests metier/import disponibles localement: `PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q` avec 33 tests passes.
 - [x] Executer les tests chunker disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests/test_chunker.py -q` avec 5 tests passes.
 - [x] Executer les tests RAG source disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests -q` avec 43 tests passes.
-- [x] Executer tous les tests API via Docker: `npm run api:test` avec 236 tests passes.
+- [x] Executer tous les tests API via Docker: `npm run api:test` avec 238 tests passes.
 - [x] Executer le lint API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m ruff check app tests scripts`.
 - [x] Executer le typecheck API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m mypy app tests scripts`.
 - [x] Executer lint, typecheck et compilation API via Docker apres ajout Gemini/Groq.

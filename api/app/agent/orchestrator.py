@@ -62,7 +62,7 @@ class AgentOrchestrator:
         self,
         model_provider: ModelProvider,
         tool_executor: ExcelToolExecutor,
-        max_tool_calls: int = 3,
+        max_tool_calls: int = 5,
         max_answer_characters: int = 4_000,
         max_run_seconds: float = 60.0,
         monotonic: Callable[[], float] = monotonic,

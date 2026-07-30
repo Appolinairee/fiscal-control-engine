@@ -73,8 +73,11 @@ Checklist operationnelle du chantier front. Les cases seront cochees au fur et a
 - [ ] Afficher les resultats de mapping et anomalies.
 - [x] Ajouter les types front du contexte session et des graphes dashboard riches.
 - [x] Ajouter l'appel front `getAgentSessionContext(sessionId)` pour la troisieme colonne.
-- [ ] Brancher la troisieme colonne sur `GET /api/agent/sessions/{session_id}/context`.
-- [ ] Afficher les graphes dashboard riches: comptes, periodes, TVA, tiers, qualite, candidats fiscaux.
+- [x] Ajouter `recharts` comme dependance de graphes, alignee avec le projet Harmonizer.
+- [x] Ajouter `framer-motion` pour les animations de decouverte des blocs analytics.
+- [x] Brancher la troisieme colonne sur `GET /api/agent/sessions/{session_id}/context`.
+- [x] Afficher les graphes dashboard riches: comptes, periodes, TVA, tiers, qualite, candidats fiscaux.
+- [x] Organiser la troisieme colonne en vue principale, KPI compacts, onglets metier et cartes animees.
 - [ ] Afficher les resultats `query_ledger_entries` depuis le payload structure, pas depuis le texte LLM.
 - [ ] Afficher un resume court pour les ecritures: total trouve, page affichee, taille page.
 - [ ] Afficher les ecritures dans un tableau base sur `returned_columns` et `entries`.
