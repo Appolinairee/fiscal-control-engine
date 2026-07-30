@@ -28,6 +28,8 @@ class AgentRunRequest:
 @dataclass(frozen=True)
 class AgentRunResult:
     answer: str
+    provider_name: str
+    model_name: str
     tool_results: tuple[ToolExecutionResult, ...]
 
 
@@ -72,6 +74,8 @@ class AgentOrchestrator:
                     if tool_result.ok
                     else "L'analyse déterministe du Grand Livre a échoué."
                 ),
+                provider_name="internal",
+                model_name="direct-tool-call",
                 tool_results=(tool_result,),
             )
         initial_model_request = _initial_model_request(
@@ -86,6 +90,8 @@ class AgentOrchestrator:
         if not initial_response.tool_calls:
             return AgentRunResult(
                 answer=self._answer_policy.apply(initial_response.text).answer,
+                provider_name=initial_response.provider_name,
+                model_name=initial_response.model_name,
                 tool_results=(),
             )
 
@@ -98,6 +104,8 @@ class AgentOrchestrator:
         if any(not result.ok for result in tool_results):
             return AgentRunResult(
                 answer="Le tool call a ete refuse par les garde-fous.",
+                provider_name=initial_response.provider_name,
+                model_name=initial_response.model_name,
                 tool_results=tool_results,
             )
 
@@ -108,6 +116,8 @@ class AgentOrchestrator:
             return _timeout_result()
         return AgentRunResult(
             answer=self._answer_policy.apply(final_response.text).answer,
+            provider_name=final_response.provider_name,
+            model_name=final_response.model_name,
             tool_results=tool_results,
         )
 
@@ -131,7 +141,12 @@ class AgentOrchestrator:
 
 
 def _timeout_result() -> AgentRunResult:
-    return AgentRunResult(answer=AGENT_RUN_TIMEOUT_ANSWER, tool_results=())
+    return AgentRunResult(
+        answer=AGENT_RUN_TIMEOUT_ANSWER,
+        provider_name="internal",
+        model_name="timeout-guard",
+        tool_results=(),
+    )
 
 
 def _initial_model_request(

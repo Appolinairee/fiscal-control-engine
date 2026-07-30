@@ -42,10 +42,18 @@ export default function AgentPromptCard() {
 
   const canSubmit =
     Boolean(prompt.trim()) &&
-    Boolean(attachedFile) &&
     !isUploading &&
     !isPreAnalyzing &&
     !isResponding;
+  const hasWorkspaceContent =
+    Boolean(attachedFile) ||
+    Boolean(pendingFile) ||
+    Boolean(uploadError) ||
+    Boolean(preAnalysisError) ||
+    Boolean(chatExchange) ||
+    isUploading ||
+    isPreAnalyzing ||
+    isResponding;
 
   const handleSubmit = () => {
     if (!canSubmit) return;
@@ -54,9 +62,17 @@ export default function AgentPromptCard() {
   };
 
   return (
-    <div className="flex min-h-full w-full max-w-[640px] flex-col justify-between gap-6">
+    <div
+      className={`flex min-h-full w-full max-w-[640px] flex-col gap-6 ${
+        hasWorkspaceContent ? "justify-between" : "justify-center"
+      }`}
+    >
       <AgentConversation chatExchange={chatExchange} isResponding={isResponding} />
-      <div className="sticky bottom-0 z-10 mt-auto bg-white pb-2 pt-4">
+      <div
+        className={`z-10 bg-white pb-2 pt-4 ${
+          hasWorkspaceContent ? "sticky bottom-0 mt-auto" : ""
+        }`}
+      >
         <AgentPromptShell>
           <AgentPromptInput
             attachedFile={chatExchange ? null : attachedFile}

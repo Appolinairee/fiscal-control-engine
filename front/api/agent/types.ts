@@ -27,6 +27,8 @@ export type AgentErrorResponse = {
 
 export type AgentRunResponse = {
   answer: string;
+  provider_name: string;
+  model_name: string;
   tool_results: Array<{
     tool_name: string;
     ok: boolean;
@@ -70,6 +72,6 @@ export type LedgerPreAnalysis = {
 export type AgentChatExchange = {
   question: string;
   answer: string | null;
-  attachedFile: AgentAttachedFile;
+  attachedFile: AgentAttachedFile | null;
   preAnalysis: LedgerPreAnalysis | null;
 };

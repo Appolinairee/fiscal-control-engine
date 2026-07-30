@@ -34,6 +34,8 @@ class AgentToolResultResponse(BaseModel):
 
 class AgentRunResponse(BaseModel):
     answer: str
+    provider_name: str
+    model_name: str
     tool_results: list[AgentToolResultResponse]
 
 

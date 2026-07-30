@@ -41,6 +41,8 @@ def test_orchestrator_returns_model_answer_without_tool_call(tmp_path: Path) -> 
 
     assert result.answer == "Je peux analyser le Grand Livre fourni."
     assert result.tool_results == ()
+    assert result.provider_name == "fake"
+    assert result.model_name == "fake-model"
 
 
 def test_orchestrator_executes_excel_tool_then_requests_final_answer(
@@ -86,6 +88,8 @@ def test_orchestrator_executes_excel_tool_then_requests_final_answer(
     assert result.answer == "Le fichier contient 4 lignes et 5 colonnes."
     assert result.tool_results[0].ok is True
     assert result.tool_results[0].output["row_count"] == 4
+    assert result.provider_name == "fake"
+    assert result.model_name == "fake-model"
     assert model.calls == 2
     assert model.requests[0].tool_definitions
     assert model.requests[0].tool_definitions[0].name == "profile_sheet"
@@ -124,6 +128,8 @@ def test_orchestrator_refuses_disallowed_tool_call(tmp_path: Path) -> None:
     assert result.answer == "Le tool call a ete refuse par les garde-fous."
     assert result.tool_results[0].ok is False
     assert result.tool_results[0].error_code == "tool_not_allowed"
+    assert result.provider_name == "fake"
+    assert result.model_name == "fake-model"
     assert model.calls == 1
 
 
@@ -159,6 +165,8 @@ def test_orchestrator_refuses_invalid_tool_arguments(tmp_path: Path) -> None:
     assert result.tool_results[0].ok is False
     assert result.tool_results[0].error_code == "invalid_tool_call"
     assert "sheet_name" in str(result.tool_results[0].error_message)
+    assert result.provider_name == "fake"
+    assert result.model_name == "fake-model"
     assert model.calls == 1
 
 
@@ -243,6 +251,37 @@ def test_orchestrator_uses_model_fallback(tmp_path: Path) -> None:
     )
 
     assert result.answer == "Reponse du modele fallback."
+    assert result.provider_name == "secondary"
+    assert result.model_name == "model-b"
+
+
+def test_orchestrator_returns_internal_model_for_direct_tool_call(
+    tmp_path: Path,
+) -> None:
+    workbook_path = write_minified_grand_livre(tmp_path)
+    model = FakeModelProvider()
+    orchestrator = _create_orchestrator(tmp_path, model)
+
+    result = orchestrator.run(
+        AgentRunRequest(
+            user_message="Analyse deterministe.",
+            file_path=workbook_path,
+            allowed_tools=("profile_sheet",),
+            direct_tool_call=ToolCall(
+                name="profile_sheet",
+                arguments={
+                    "file_path": str(workbook_path),
+                    "sheet_name": "Grand Livre",
+                },
+            ),
+        ),
+    )
+
+    assert result.answer == "L'analyse déterministe du Grand Livre est terminée."
+    assert result.tool_results[0].ok is True
+    assert result.provider_name == "internal"
+    assert result.model_name == "direct-tool-call"
+    assert model.calls == 0
 
 
 def test_orchestrator_blocks_direct_tax_decision_in_answer(tmp_path: Path) -> None:

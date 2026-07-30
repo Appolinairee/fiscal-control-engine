@@ -61,6 +61,18 @@ async def get_agent_orchestrator(settings: SettingsDependency) -> AgentOrchestra
                 else None
             ),
             openai_compatible_base_url=settings.llm_openai_compatible_base_url,
+            gemini_api_key=(
+                settings.llm_gemini_api_key.get_secret_value()
+                if settings.llm_gemini_api_key is not None
+                else None
+            ),
+            gemini_base_url=settings.llm_gemini_base_url,
+            groq_api_key=(
+                settings.llm_groq_api_key.get_secret_value()
+                if settings.llm_groq_api_key is not None
+                else None
+            ),
+            groq_base_url=settings.llm_groq_base_url,
         )
         return AgentOrchestrator(
             model_provider=model_provider,
@@ -264,6 +276,8 @@ async def run_agent(
         return _to_error_response(exc)
     return AgentRunResponse(
         answer=result.answer,
+        provider_name=result.provider_name,
+        model_name=result.model_name,
         tool_results=[
             AgentToolResultResponse(
                 tool_name=tool_result.tool_name,

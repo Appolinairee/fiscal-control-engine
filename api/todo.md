@@ -97,17 +97,25 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter une factory de providers modeles avec fallback interne controle.
 - [x] Ajouter les definitions de tools dans le contrat `ModelRequest` pour les LLM externes.
 - [x] Ajouter un adapter `openai-compatible` derriere `ModelProvider`.
+- [x] Ajouter un adapter natif `gemini` derriere `ModelProvider`.
+- [x] Ajouter le support minimal des function calls Gemini pour les tools agent.
+- [x] Ajouter un provider dedie `groq` via l'API compatible OpenAI.
 - [x] Garder les providers inconnus explicitement refuses.
 - [x] Implementer le fallback ordonne: modele principal -> modele secondaire -> reponse controlee sans LLM.
+- [x] Configurer la chaine cible Gemini -> Groq -> reponse controlee interne.
 - [x] Ajouter des retries bornes et un circuit breaker simple pour les appels modeles.
 - [x] Ajouter l'application stricte du timeout mesure autour des appels modeles.
 - [x] Journaliser uniquement les metadonnees utiles: provider, modele, duree, statut, jamais les donnees sensibles.
 - [x] Configurer `LLM_OPENAI_COMPATIBLE_API_KEY` et `LLM_OPENAI_COMPATIBLE_BASE_URL` sans secret dans `.env.example`.
+- [x] Configurer `LLM_GEMINI_API_KEY`, `LLM_GEMINI_BASE_URL`, `LLM_GROQ_API_KEY` et `LLM_GROQ_BASE_URL` sans secret dans `.env.example`.
+- [x] Retourner `provider_name` et `model_name` dans la reponse `POST /api/agent/runs`.
 - [x] Ajouter un smoke check local LLM qui retourne uniquement des metadonnees.
 - [x] Ajouter le script `api:smoke:llm` pour tester une cle locale non commitee.
 - [ ] Tester un appel reel `openai-compatible` avec une cle locale non commitee. Bloque localement: aucune cle `.env` fournie.
+- [ ] Tester un appel reel Gemini puis Groq avec cles locales non commitees.
 - [x] Ajouter des tests unitaires avec providers fake pour succes, fallback et timeout.
 - [x] Ajouter des tests unitaires pour erreur provider avancee et tool call invalide.
+- [x] Ajouter les tests unitaires Gemini, Groq/factory et retour du modele repondant.
 
 ## Endpoint Agent Future
 
@@ -117,6 +125,8 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Retourner une reponse structuree sans exposer les tools comme endpoints separes.
 - [x] Retourner des erreurs HTTP explicites sans exposer fichiers, prompts complets ou donnees sensibles.
 - [x] Ajouter les tests unitaires du router agent avec orchestrateur fake.
+- [ ] Ajouter une trace d'execution safe dans `AgentRunResponse`: etapes, tool calls, provider, durees, statuts.
+- [ ] Exposer les etapes haut niveau uniquement, sans chain-of-thought ni contenu sensible.
 
 ## Uploads et Sessions Future
 
@@ -238,10 +248,12 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Executer les tests metier/import disponibles localement: `PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q` avec 33 tests passes.
 - [x] Executer les tests chunker disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests/test_chunker.py -q` avec 5 tests passes.
 - [x] Executer les tests RAG source disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests -q` avec 43 tests passes.
-- [x] Executer tous les tests API disponibles localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m pytest -q` avec 176 tests passes.
+- [x] Executer tous les tests API via Docker: `npm run api:test` avec 188 tests passes.
 - [x] Executer le lint API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m ruff check app tests scripts`.
 - [x] Executer le typecheck API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m mypy app tests scripts`.
-- [x] Verifier le smoke LLM sans cle: sortie controlee `missing LLM_OPENAI_COMPATIBLE_API_KEY`.
+- [x] Executer lint, typecheck et compilation API via Docker apres ajout Gemini/Groq.
+- [x] Verifier l'absence de secrets: `python3 api/scripts/secret_scanner.py .`.
+- [x] Verifier le smoke LLM sans cle externe: provider interne `internal/controlled-response`.
 - [x] Executer les tests Agent Excel/LLM disponibles localement: `PYTHONPATH=. python3 -m pytest app/excel_agent/tests app/llm/tests -q` avec 12 tests passes.
 - [x] Verifier la compilation Python: `PYTHONPATH=. python3 -m compileall app tests`.
 - [x] Executer lint, typecheck, compilation et tests API via Docker.

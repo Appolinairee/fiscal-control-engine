@@ -29,6 +29,8 @@ def test_agent_run_endpoint_returns_orchestrated_answer() -> None:
     fake_orchestrator = FakeAgentOrchestrator(
         AgentRunResult(
             answer="Le fichier contient 4 lignes et 5 colonnes.",
+            provider_name="fake",
+            model_name="fake-model",
             tool_results=(
                 ToolExecutionResult(
                     tool_name="profile_sheet",
@@ -56,6 +58,8 @@ def test_agent_run_endpoint_returns_orchestrated_answer() -> None:
     assert response.status_code == 200
     assert response.json() == {
         "answer": "Le fichier contient 4 lignes et 5 colonnes.",
+        "provider_name": "fake",
+        "model_name": "fake-model",
         "tool_results": [
             {
                 "tool_name": "profile_sheet",
@@ -76,7 +80,12 @@ def test_agent_run_endpoint_returns_orchestrated_answer() -> None:
 def test_agent_run_endpoint_accepts_session_file_reference() -> None:
     app = create_app()
     fake_orchestrator = FakeAgentOrchestrator(
-        AgentRunResult(answer="OK", tool_results=()),
+        AgentRunResult(
+            answer="OK",
+            provider_name="fake",
+            model_name="fake-model",
+            tool_results=(),
+        ),
     )
     fake_resolver = FakeAgentFileResolver(
         resolved_path=Path("/server/session/file.xlsx"),
@@ -113,7 +122,12 @@ def test_agent_run_endpoint_accepts_session_file_reference() -> None:
 def test_agent_run_endpoint_allows_ledger_analysis_by_default() -> None:
     app = create_app()
     fake_orchestrator = FakeAgentOrchestrator(
-        AgentRunResult(answer="OK", tool_results=()),
+        AgentRunResult(
+            answer="OK",
+            provider_name="fake",
+            model_name="fake-model",
+            tool_results=(),
+        ),
     )
 
     async def override_orchestrator() -> FakeAgentOrchestrator:
@@ -139,7 +153,12 @@ def test_agent_upload_then_run_uses_stored_session_reference(tmp_path: Path) -> 
     app = create_app()
     source_path = write_minified_grand_livre(tmp_path / "sources")
     fake_orchestrator = FakeAgentOrchestrator(
-        AgentRunResult(answer="OK", tool_results=()),
+        AgentRunResult(
+            answer="OK",
+            provider_name="fake",
+            model_name="fake-model",
+            tool_results=(),
+        ),
     )
 
     async def override_settings() -> Settings:
@@ -242,6 +261,8 @@ def test_agent_upload_then_run_executes_ledger_analysis_tool(
     assert run_response.status_code == 200
     payload = run_response.json()
     assert payload["answer"] == "Le Grand Livre contient 4 lignes et 5 colonnes."
+    assert payload["provider_name"] == "fake"
+    assert payload["model_name"] == "tool-caller"
     assert payload["tool_results"][0]["tool_name"] == "analyze_ledger"
     assert payload["tool_results"][0]["ok"] is True
     assert payload["tool_results"][0]["output"]["row_count"] == 4

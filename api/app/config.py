@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     llm_provider_chain: str = "internal:controlled-response"
     llm_openai_compatible_api_key: SecretStr | None = None
     llm_openai_compatible_base_url: str = "https://api.openai.com/v1"
+    llm_gemini_api_key: SecretStr | None = None
+    llm_gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    llm_groq_api_key: SecretStr | None = None
+    llm_groq_base_url: str = "https://api.groq.com/openai/v1"
     llm_default_timeout_seconds: float = 30.0
     llm_max_output_tokens: int = 1200
     excel_agent_allowed_root_path: str = "../docs"

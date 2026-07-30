@@ -161,16 +161,6 @@ export const useAgentFileUpload = () => {
     const trimmedMessage = message.trim();
     if (!trimmedMessage) return;
 
-    if (!attachedFile) {
-      const errorMessage = "Ajoutez d'abord un fichier Excel.";
-      setUploadError(errorMessage);
-      setAlert({
-        content: errorMessage,
-        type: AlertTypeStatus.ERROR,
-      });
-      return;
-    }
-
     setChatExchange({
       question: trimmedMessage,
       attachedFile,
@@ -179,9 +169,9 @@ export const useAgentFileUpload = () => {
     });
     chatMutation.mutate({
       message: trimmedMessage,
-      sessionId: attachedFile.sessionId,
-      fileId: attachedFile.fileId,
-      sheetName: attachedFile.selectedSheetName,
+      sessionId: attachedFile?.sessionId,
+      fileId: attachedFile?.fileId,
+      sheetName: attachedFile?.selectedSheetName,
     });
   };
 

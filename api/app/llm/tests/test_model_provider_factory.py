@@ -41,9 +41,29 @@ def test_factory_creates_openai_compatible_provider_with_internal_fallback() -> 
     assert isinstance(provider, FallbackModelProvider)
 
 
+def test_factory_creates_gemini_groq_internal_fallback_chain() -> None:
+    provider = create_model_provider(
+        "gemini:gemini-test,groq:llama-test,internal:controlled-response",
+        gemini_api_key="gemini-api-key",
+        groq_api_key="groq-api-key",
+    )
+
+    assert isinstance(provider, FallbackModelProvider)
+
+
 def test_factory_rejects_openai_compatible_provider_without_api_key() -> None:
     with pytest.raises(ValueError, match="api key is required"):
         create_model_provider("openai-compatible:gpt-test")
+
+
+def test_factory_rejects_gemini_provider_without_api_key() -> None:
+    with pytest.raises(ValueError, match="gemini api key is required"):
+        create_model_provider("gemini:gemini-test")
+
+
+def test_factory_rejects_groq_provider_without_api_key() -> None:
+    with pytest.raises(ValueError, match="groq api key is required"):
+        create_model_provider("groq:llama-test")
 
 
 def test_factory_rejects_unknown_external_provider() -> None:
