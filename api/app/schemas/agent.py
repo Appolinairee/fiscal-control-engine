@@ -32,10 +32,21 @@ class AgentToolResultResponse(BaseModel):
     error_message: str | None = None
 
 
+class AgentRunEventResponse(BaseModel):
+    event_type: str
+    title: str
+    message: str
+    status: str
+    tool_name: str | None = None
+    provider_name: str | None = None
+    model_name: str | None = None
+
+
 class AgentRunResponse(BaseModel):
     answer: str
     provider_name: str
     model_name: str
+    execution_events: list[AgentRunEventResponse]
     tool_results: list[AgentToolResultResponse]
 
 

@@ -1,11 +1,16 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import { uploadAgentFile } from "@/api/agent/uploadAgentFile";
-import { runAgentChat, runAgentPreAnalysis } from "@/api/agent/runAgentAnalysis";
+import {
+  runAgentChat,
+  runAgentChatStream,
+  runAgentPreAnalysis,
+} from "@/api/agent/runAgentAnalysis";
 import type {
   AgentAttachedFile,
-  AgentChatExchange,
+  AgentConversationMessage,
+  AgentRunEvent,
   AgentErrorResponse,
   AgentRunResponse,
   LedgerPreAnalysis,
@@ -14,6 +19,14 @@ import { ApiError } from "@/utils/api/errors";
 import useAlertStore, { AlertTypeStatus } from "@/store/alertStore";
 
 export const AGENT_UPLOAD_ACCEPTED_EXTENSIONS = [".xlsx", ".xlsm"];
+
+type ChatMutationVariables = {
+  message: string;
+  assistantMessageId: string;
+  sessionId?: string;
+  fileId?: string;
+  sheetName?: string;
+};
 
 const hasAcceptedExtension = (filename: string): boolean => {
   const lowerCaseFilename = filename.toLowerCase();
@@ -28,8 +41,21 @@ export const useAgentFileUpload = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [preAnalysis, setPreAnalysis] = useState<LedgerPreAnalysis | null>(null);
   const [preAnalysisError, setPreAnalysisError] = useState<string | null>(null);
-  const [chatExchange, setChatExchange] = useState<AgentChatExchange | null>(null);
+  const [messages, setMessages] = useState<AgentConversationMessage[]>([]);
+  const [isResponding, setIsResponding] = useState(false);
+  const activePreviewUrlRef = useRef<string | null>(null);
+  const previewUrlsRef = useRef<Set<string>>(new Set());
   const { setAlert } = useAlertStore();
+
+  useEffect(() => {
+    const previewUrls = previewUrlsRef.current;
+    return () => {
+      previewUrls.forEach((previewUrl) => {
+        revokePreviewUrl(previewUrl);
+      });
+      previewUrls.clear();
+    };
+  }, []);
 
   const preAnalysisMutation = useMutation({
     mutationFn: ({
@@ -51,54 +77,26 @@ export const useAgentFileUpload = () => {
     },
   });
 
-  const chatMutation = useMutation({
-    mutationFn: ({
-      message,
-      sessionId,
-      fileId,
-      sheetName,
-    }: {
-      message: string;
-      sessionId?: string;
-      fileId?: string;
-      sheetName?: string;
-    }) => runAgentChat({ message, sessionId, fileId, sheetName }),
-    onSuccess: (response) => {
-      setChatExchange((currentExchange) =>
-        currentExchange
-          ? {
-              ...currentExchange,
-              answer: response.answer,
-            }
-          : null
-      );
-    },
-    onError: () => {
-      setChatExchange((currentExchange) =>
-        currentExchange
-          ? {
-              ...currentExchange,
-              answer: "La reponse agent a echoue. Vous pouvez reformuler ou relancer.",
-            }
-          : null
-      );
-    },
-  });
-
   const uploadMutation = useMutation({
     mutationFn: uploadAgentFile,
     onSuccess: (response, file) => {
       const selectedSheetName = response.sheet_names[0] || "";
+      const previewUrl = createPreviewUrl(file);
+      revokeActivePreviewUrl(activePreviewUrlRef.current, previewUrlsRef.current);
+      if (previewUrl) {
+        previewUrlsRef.current.add(previewUrl);
+      }
+      activePreviewUrlRef.current = previewUrl;
       setUploadError(null);
       setPendingFile(null);
       setPreAnalysis(null);
       setPreAnalysisError(null);
-      setChatExchange(null);
       setAttachedFile({
         sessionId: response.session_id,
         fileId: response.file_id,
         filename: response.original_filename,
         sizeBytes: file.size,
+        previewUrl,
         expiresAt: response.expires_at,
         sheetNames: response.sheet_names,
         selectedSheetName,
@@ -129,7 +127,6 @@ export const useAgentFileUpload = () => {
     setUploadError(null);
     setPreAnalysis(null);
     setPreAnalysisError(null);
-    setChatExchange(null);
     if (!hasAcceptedExtension(file.name)) {
       const message =
         "Seuls les fichiers Excel (.xlsx, .xlsm) sont acceptes pour le moment.";
@@ -146,49 +143,211 @@ export const useAgentFileUpload = () => {
   };
 
   const removeFile = () => {
+    revokeActivePreviewUrl(activePreviewUrlRef.current, previewUrlsRef.current);
+    activePreviewUrlRef.current = null;
     setAttachedFile(null);
     setPendingFile(null);
     setUploadError(null);
     setPreAnalysis(null);
     setPreAnalysisError(null);
-    setChatExchange(null);
     preAnalysisMutation.reset();
-    chatMutation.reset();
     uploadMutation.reset();
   };
 
   const submitPrompt = (message: string) => {
     const trimmedMessage = message.trim();
-    if (!trimmedMessage) return;
+    if (!trimmedMessage || isResponding) return;
 
-    setChatExchange({
-      question: trimmedMessage,
-      attachedFile,
-      preAnalysis,
-      answer: null,
-    });
-    chatMutation.mutate({
+    const userMessageId = createMessageId("user");
+    const assistantMessageId = createMessageId("assistant");
+    const submittedFile = attachedFile;
+    const submittedPreAnalysis = preAnalysis;
+
+    if (submittedFile) {
+      activePreviewUrlRef.current = null;
+    }
+    setAttachedFile(null);
+    setPreAnalysis(null);
+    setPreAnalysisError(null);
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      {
+        id: userMessageId,
+        role: "user",
+        content: trimmedMessage,
+        attachedFile: submittedFile,
+      },
+      {
+        id: assistantMessageId,
+        role: "assistant",
+        content: null,
+        status: "loading",
+        hasFileContext: Boolean(submittedFile),
+        preAnalysis: submittedPreAnalysis,
+        executionEvents: [],
+        providerName: null,
+        modelName: null,
+      },
+    ]);
+
+    runChatWithStream({
       message: trimmedMessage,
-      sessionId: attachedFile?.sessionId,
-      fileId: attachedFile?.fileId,
-      sheetName: attachedFile?.selectedSheetName,
+      assistantMessageId,
+      sessionId: submittedFile?.sessionId,
+      fileId: submittedFile?.fileId,
+      sheetName: submittedFile?.selectedSheetName,
     });
   };
+
+  async function runChatWithStream({
+    message,
+    assistantMessageId,
+    sessionId,
+    fileId,
+    sheetName,
+  }: ChatMutationVariables) {
+    setIsResponding(true);
+    let hasStreamProgress = false;
+
+    try {
+      const response = await runAgentChatStream(
+        { message, sessionId, fileId, sheetName },
+        {
+          onEvent: (event) => {
+            hasStreamProgress = true;
+            appendAssistantEvent(assistantMessageId, event);
+          },
+          onAnswerDelta: (chunk) => {
+            hasStreamProgress = true;
+            appendAssistantAnswerDelta(assistantMessageId, chunk);
+          },
+        }
+      );
+      completeAssistantMessage(assistantMessageId, response);
+    } catch {
+      if (!hasStreamProgress) {
+        try {
+          const fallbackResponse = await runAgentChat({
+            message,
+            sessionId,
+            fileId,
+            sheetName,
+          });
+          completeAssistantMessage(assistantMessageId, fallbackResponse);
+          return;
+        } catch {
+          // The message is marked as failed below.
+        }
+      }
+
+      failAssistantMessage(assistantMessageId);
+    } finally {
+      setIsResponding(false);
+    }
+  }
+
+  function appendAssistantEvent(assistantMessageId: string, event: AgentRunEvent) {
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === assistantMessageId && message.role === "assistant"
+          ? {
+              ...message,
+              executionEvents: [...message.executionEvents, event],
+            }
+          : message
+      )
+    );
+  }
+
+  function appendAssistantAnswerDelta(
+    assistantMessageId: string,
+    chunk: string
+  ) {
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === assistantMessageId && message.role === "assistant"
+          ? {
+              ...message,
+              content: message.content ? `${message.content}\n\n${chunk}` : chunk,
+            }
+          : message
+      )
+    );
+  }
+
+  function completeAssistantMessage(
+    assistantMessageId: string,
+    response: AgentRunResponse
+  ) {
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === assistantMessageId && message.role === "assistant"
+          ? {
+              ...message,
+              content: response.answer,
+              status: "done",
+              executionEvents: response.execution_events,
+              providerName: response.provider_name,
+              modelName: response.model_name,
+            }
+          : message
+      )
+    );
+  }
+
+  function failAssistantMessage(assistantMessageId: string) {
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === assistantMessageId && message.role === "assistant"
+          ? {
+              ...message,
+              content: "La reponse agent a echoue. Vous pouvez reformuler ou relancer.",
+              status: "error",
+            }
+          : message
+      )
+    );
+  }
 
   return {
     attachedFile,
     pendingFile,
     isUploading: uploadMutation.isPending,
     isPreAnalyzing: preAnalysisMutation.isPending,
-    isResponding: chatMutation.isPending,
+    isResponding,
     uploadError,
-    preAnalysis,
     preAnalysisError,
-    chatExchange,
+    messages,
     addFile,
     removeFile,
     submitPrompt,
   };
+};
+
+const createMessageId = (prefix: string) => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+const createPreviewUrl = (file: File) => {
+  if (typeof URL === "undefined") return null;
+  return URL.createObjectURL(file);
+};
+
+const revokeActivePreviewUrl = (
+  previewUrl: string | null,
+  previewUrls: Set<string>
+) => {
+  if (!previewUrl) return;
+  revokePreviewUrl(previewUrl);
+  previewUrls.delete(previewUrl);
+};
+
+const revokePreviewUrl = (previewUrl: string | null) => {
+  if (!previewUrl || typeof URL === "undefined") return;
+  URL.revokeObjectURL(previewUrl);
 };
 
 const extractLedgerPreAnalysis = (response: AgentRunResponse): LedgerPreAnalysis | null => {

@@ -86,6 +86,10 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter le garde-fou de taille maximale de reponse.
 - [x] Ajouter le garde-fou de timeout global.
 - [x] Ajouter les tests unitaires de l'orchestrateur: reponse sans tool, reponse avec tool, tool refuse, fallback modele.
+- [x] Definir le contrat interne `AgentRunEvent` lisible par un utilisateur non technique: `run_started`, `file_checked`, `model_requested`, `tool_requested`, `tool_started`, `tool_finished`, `fallback_used`, `answer_delta`, `answer_ready`, `run_failed`.
+- [x] Collecter une trace d'execution safe dans `AgentRunResult`: etapes pedagogiques, outils utilises, resume des observations LLM, sans chain-of-thought ni donnees sensibles.
+- [x] Ajouter les tests unitaires de trace agent: ordre des etapes, erreurs tool, fallback modele, timeout.
+- [x] Ajouter une synthese visible des pre-traitements: fichier verifie, controles lances, outil choisi, statut de chaque etape, jamais les pensees internes du modele.
 
 ## LLM / Modeles Externes
 
@@ -109,10 +113,13 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Configurer `LLM_OPENAI_COMPATIBLE_API_KEY` et `LLM_OPENAI_COMPATIBLE_BASE_URL` sans secret dans `.env.example`.
 - [x] Configurer `LLM_GEMINI_API_KEY`, `LLM_GEMINI_BASE_URL`, `LLM_GROQ_API_KEY` et `LLM_GROQ_BASE_URL` sans secret dans `.env.example`.
 - [x] Retourner `provider_name` et `model_name` dans la reponse `POST /api/agent/runs`.
+- [x] Retourner une reponse agent formatee en Markdown propre: paragraphes courts, listes, tableaux simples, sections courtes.
+- [x] Ajouter une consigne modele stricte de formatage Markdown et de ton clair pour un utilisateur non technique.
+- [x] Normaliser les sorties de providers pour eviter les listes inline illisibles et les blocs non structures.
 - [x] Ajouter un smoke check local LLM qui retourne uniquement des metadonnees.
 - [x] Ajouter le script `api:smoke:llm` pour tester une cle locale non commitee.
-- [ ] Tester un appel reel `openai-compatible` avec une cle locale non commitee. Bloque localement: aucune cle `.env` fournie.
-- [ ] Tester un appel reel Gemini puis Groq avec cles locales non commitees.
+- [ ] Reporter le test reel `openai-compatible` generique: hors perimetre immediat, on teste seulement Gemini et Groq pour l'instant.
+- [x] Tester un appel reel Gemini puis Groq avec cles locales non commitees: Gemini repond en premier, Groq a ete valide comme fallback.
 - [x] Ajouter des tests unitaires avec providers fake pour succes, fallback et timeout.
 - [x] Ajouter des tests unitaires pour erreur provider avancee et tool call invalide.
 - [x] Ajouter les tests unitaires Gemini, Groq/factory et retour du modele repondant.
@@ -125,8 +132,10 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Retourner une reponse structuree sans exposer les tools comme endpoints separes.
 - [x] Retourner des erreurs HTTP explicites sans exposer fichiers, prompts complets ou donnees sensibles.
 - [x] Ajouter les tests unitaires du router agent avec orchestrateur fake.
-- [ ] Ajouter une trace d'execution safe dans `AgentRunResponse`: etapes, tool calls, provider, durees, statuts.
-- [ ] Exposer les etapes haut niveau uniquement, sans chain-of-thought ni contenu sensible.
+- [x] Ajouter `execution_events` dans `AgentRunResponse`: libelles utilisateur, etapes, tools, provider, modele, statuts.
+- [x] Ajouter un endpoint de streaming `POST /api/agent/runs/stream` en NDJSON pour afficher les etapes et la reponse sans attendre la fin.
+- [x] Streamer les evenements safe en direct: progression, tool appele, resultat resume, provider utilise, morceaux de reponse Markdown, jamais de prompt complet ni chain-of-thought.
+- [x] Ajouter les tests unitaires du flux streaming agent avec orchestrateur fake.
 
 ## Uploads et Sessions Future
 
@@ -248,11 +257,12 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Executer les tests metier/import disponibles localement: `PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q` avec 33 tests passes.
 - [x] Executer les tests chunker disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests/test_chunker.py -q` avec 5 tests passes.
 - [x] Executer les tests RAG source disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests -q` avec 43 tests passes.
-- [x] Executer tous les tests API via Docker: `npm run api:test` avec 188 tests passes.
+- [x] Executer tous les tests API via Docker: `npm run api:test` avec 191 tests passes.
 - [x] Executer le lint API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m ruff check app tests scripts`.
 - [x] Executer le typecheck API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m mypy app tests scripts`.
 - [x] Executer lint, typecheck et compilation API via Docker apres ajout Gemini/Groq.
 - [x] Verifier l'absence de secrets: `python3 api/scripts/secret_scanner.py .`.
+- [x] Aligner `npm run secrets:check` sur les fichiers suivis Git pour ignorer les `.env` locaux.
 - [x] Verifier le smoke LLM sans cle externe: provider interne `internal/controlled-response`.
 - [x] Executer les tests Agent Excel/LLM disponibles localement: `PYTHONPATH=. python3 -m pytest app/excel_agent/tests app/llm/tests -q` avec 12 tests passes.
 - [x] Verifier la compilation Python: `PYTHONPATH=. python3 -m compileall app tests`.

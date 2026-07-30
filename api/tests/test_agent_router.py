@@ -1,11 +1,17 @@
 import asyncio
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
 
-from app.agent.orchestrator import AgentOrchestrator, AgentRunRequest, AgentRunResult
+from app.agent.orchestrator import (
+    AgentOrchestrator,
+    AgentRunEvent,
+    AgentRunRequest,
+    AgentRunResult,
+)
 from app.agent_file.domain import AgentFileReadError, AgentFileUploadResult
 from app.config import Settings
 from app.excel_agent.domain import ToolExecutionResult
@@ -31,6 +37,14 @@ def test_agent_run_endpoint_returns_orchestrated_answer() -> None:
             answer="Le fichier contient 4 lignes et 5 colonnes.",
             provider_name="fake",
             model_name="fake-model",
+            execution_events=(
+                AgentRunEvent(
+                    event_type="run_started",
+                    title="Demande reçue",
+                    message="Demande prise en compte.",
+                    status="completed",
+                ),
+            ),
             tool_results=(
                 ToolExecutionResult(
                     tool_name="profile_sheet",
@@ -60,6 +74,17 @@ def test_agent_run_endpoint_returns_orchestrated_answer() -> None:
         "answer": "Le fichier contient 4 lignes et 5 colonnes.",
         "provider_name": "fake",
         "model_name": "fake-model",
+        "execution_events": [
+            {
+                "event_type": "run_started",
+                "title": "Demande reçue",
+                "message": "Demande prise en compte.",
+                "status": "completed",
+                "tool_name": None,
+                "provider_name": None,
+                "model_name": None,
+            },
+        ],
         "tool_results": [
             {
                 "tool_name": "profile_sheet",
@@ -73,6 +98,7 @@ def test_agent_run_endpoint_returns_orchestrated_answer() -> None:
     assert fake_orchestrator.last_request == AgentRunRequest(
         user_message="Profile ce Grand Livre.",
         file_path=Path("grand_livre_minifie.xlsx"),
+        sheet_name=None,
         allowed_tools=("profile_sheet",),
     )
 
@@ -84,6 +110,7 @@ def test_agent_run_endpoint_accepts_session_file_reference() -> None:
             answer="OK",
             provider_name="fake",
             model_name="fake-model",
+            execution_events=(),
             tool_results=(),
         ),
     )
@@ -115,6 +142,7 @@ def test_agent_run_endpoint_accepts_session_file_reference() -> None:
     assert fake_orchestrator.last_request == AgentRunRequest(
         user_message="Profile le fichier de session.",
         file_path=Path("/server/session/file.xlsx"),
+        sheet_name=None,
         allowed_tools=("profile_sheet",),
     )
 
@@ -126,6 +154,7 @@ def test_agent_run_endpoint_allows_ledger_analysis_by_default() -> None:
             answer="OK",
             provider_name="fake",
             model_name="fake-model",
+            execution_events=(),
             tool_results=(),
         ),
     )
@@ -157,6 +186,7 @@ def test_agent_upload_then_run_uses_stored_session_reference(tmp_path: Path) -> 
             answer="OK",
             provider_name="fake",
             model_name="fake-model",
+            execution_events=(),
             tool_results=(),
         ),
     )
@@ -263,6 +293,16 @@ def test_agent_upload_then_run_executes_ledger_analysis_tool(
     assert payload["answer"] == "Le Grand Livre contient 4 lignes et 5 colonnes."
     assert payload["provider_name"] == "fake"
     assert payload["model_name"] == "tool-caller"
+    assert [event["event_type"] for event in payload["execution_events"]] == [
+        "run_started",
+        "file_checked",
+        "model_requested",
+        "tool_requested",
+        "tool_started",
+        "tool_finished",
+        "model_requested",
+        "answer_ready",
+    ]
     assert payload["tool_results"][0]["tool_name"] == "analyze_ledger"
     assert payload["tool_results"][0]["ok"] is True
     assert payload["tool_results"][0]["output"]["row_count"] == 4
@@ -338,6 +378,61 @@ def test_agent_tools_are_not_exposed_as_individual_http_endpoints() -> None:
     )
 
     assert response.status_code == 404
+
+
+def test_agent_run_stream_endpoint_returns_events_before_final_result() -> None:
+    app = create_app()
+    fake_orchestrator = FakeAgentOrchestrator(
+        AgentRunResult(
+            answer="- Le fichier contient 4 lignes.\n- Le schema est valide.",
+            provider_name="fake",
+            model_name="fake-model",
+            execution_events=(),
+            tool_results=(),
+        ),
+        events=(
+            AgentRunEvent(
+                event_type="run_started",
+                title="Demande reçue",
+                message="Demande prise en compte.",
+                status="completed",
+            ),
+            AgentRunEvent(
+                event_type="tool_started",
+                title="Analyse du fichier",
+                message="Analyse du Grand Livre en cours.",
+                status="running",
+                tool_name="analyze_ledger",
+            ),
+        ),
+    )
+
+    async def override_orchestrator() -> FakeAgentOrchestrator:
+        return fake_orchestrator
+
+    app.dependency_overrides[get_agent_orchestrator] = override_orchestrator
+
+    response = _post(
+        app,
+        "/api/agent/runs/stream",
+        json={"message": "Analyse ce Grand Livre."},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/x-ndjson")
+    lines = [json.loads(line) for line in response.text.splitlines()]
+    assert [line["type"] for line in lines] == [
+        "event",
+        "event",
+        "event",
+        "event",
+        "result",
+    ]
+    assert lines[0]["data"]["message"] == "Demande prise en compte."
+    assert lines[1]["data"]["tool_name"] == "analyze_ledger"
+    assert lines[2]["data"]["event_type"] == "answer_delta"
+    assert lines[2]["data"]["message"] == "- Le fichier contient 4 lignes."
+    assert lines[-1]["data"]["model_name"] == "fake-model"
 
 
 def test_agent_file_upload_endpoint_returns_session_reference_only() -> None:
@@ -432,12 +527,24 @@ def test_agent_file_upload_endpoint_returns_sanitized_upload_error() -> None:
 
 
 class FakeAgentOrchestrator:
-    def __init__(self, result: AgentRunResult) -> None:
+    def __init__(
+        self,
+        result: AgentRunResult,
+        events: tuple[AgentRunEvent, ...] = (),
+    ) -> None:
         self._result = result
+        self._events = events
         self.last_request: AgentRunRequest | None = None
 
-    def run(self, request: AgentRunRequest) -> AgentRunResult:
+    def run(
+        self,
+        request: AgentRunRequest,
+        event_sink: Any | None = None,
+    ) -> AgentRunResult:
         self.last_request = request
+        if event_sink is not None:
+            for event in self._events:
+                event_sink(event)
         return self._result
 
 

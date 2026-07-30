@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 
 from app.agent.constants import (
@@ -31,4 +32,20 @@ class AgentAnswerPolicy:
             )
         if len(answer) > self._max_answer_characters:
             return AnswerPolicyResult(answer=OVERSIZED_MODEL_ANSWER, blocked=True)
-        return AnswerPolicyResult(answer=answer, blocked=False)
+        return AnswerPolicyResult(
+            answer=_strip_boilerplate_headings(_format_markdown_lists(answer)),
+            blocked=False,
+        )
+
+
+def _format_markdown_lists(answer: str) -> str:
+    formatted_answer = re.sub(r"\s+:\s+-\s+", ":\n- ", answer.strip())
+    return re.sub(r"\s+-\s+(?=[A-ZÀ-Ý0-9])", "\n- ", formatted_answer)
+
+
+def _strip_boilerplate_headings(answer: str) -> str:
+    return re.sub(
+        r"(?im)^#{1,3}\s*introduction\s*\n+",
+        "",
+        answer,
+    ).strip()

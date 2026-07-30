@@ -111,22 +111,27 @@ input[type="number"] {
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+    width: 5px;
+    height: 5px;
     border-radius: 8px;
+}
+
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(64, 81, 92, 0.28) transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
     border: none;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    background: rgba(87, 87, 87, 0.25);
+    box-shadow: 0 1px 3px rgba(64, 81, 92, 0.1);
+    background: rgba(64, 81, 92, 0.28);
     border-radius: 8px;
     min-height: 40px;
     transition: background 0.1s ease;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(87, 87, 87, 0.4);
+    background: rgba(64, 81, 92, 0.42);
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {

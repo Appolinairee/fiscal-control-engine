@@ -1,13 +1,22 @@
+import json
+from collections.abc import Iterator
 from datetime import timedelta
 from functools import lru_cache
 from pathlib import Path
+from queue import Queue
 from tempfile import NamedTemporaryFile
+from threading import Thread
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, UploadFile, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
-from app.agent.orchestrator import AgentOrchestrator, AgentRunRequest
+from app.agent.orchestrator import (
+    AgentOrchestrator,
+    AgentRunEvent,
+    AgentRunRequest,
+    AgentRunResult,
+)
 from app.agent_file.domain import (
     AgentFileReadError,
     AgentFileTooLargeError,
@@ -27,6 +36,7 @@ from app.schemas.agent import (
     AgentErrorDetail,
     AgentErrorResponse,
     AgentFileUploadResponse,
+    AgentRunEventResponse,
     AgentRunHttpRequest,
     AgentRunResponse,
     AgentToolResultResponse,
@@ -248,21 +258,9 @@ async def run_agent(
             direct_file_path=request.file_path,
         )
         result = orchestrator.run(
-            AgentRunRequest(
-                user_message=request.message,
+            _to_agent_run_request(
+                request=request,
                 file_path=file_path,
-                allowed_tools=tuple(request.allowed_tools or DEFAULT_AGENT_TOOLS),
-                direct_tool_call=(
-                    ToolCall(
-                        name=request.requested_tool,
-                        arguments={
-                            "file_path": str(file_path),
-                            "sheet_name": request.sheet_name,
-                        },
-                    )
-                    if request.requested_tool and request.sheet_name and file_path
-                    else None
-                ),
             ),
         )
     except ValueError:
@@ -274,10 +272,76 @@ async def run_agent(
         )
     except AgentEndpointError as exc:
         return _to_error_response(exc)
+    return _to_agent_run_response(result)
+
+
+@router.post(
+    "/runs/stream",
+    response_model=None,
+    responses={400: {"model": AgentErrorResponse}},
+)
+async def stream_agent_run(
+    request: AgentRunHttpRequest,
+    orchestrator: AgentOrchestratorDependency,
+    file_resolver: AgentFileResolverDependency,
+) -> StreamingResponse | JSONResponse:
+    try:
+        file_path = file_resolver.resolve_file_path(
+            session_id=request.session_id,
+            file_id=request.file_id,
+            direct_file_path=request.file_path,
+        )
+        agent_request = _to_agent_run_request(
+            request=request,
+            file_path=file_path,
+        )
+    except ValueError:
+        return _to_error_response(
+            AgentEndpointError(
+                public_code="agent_file_reference_error",
+                public_message="La reference fichier agent est invalide.",
+            ),
+        )
+
+    return StreamingResponse(
+        _stream_agent_run(orchestrator, agent_request),
+        media_type="application/x-ndjson",
+    )
+
+
+def _to_agent_run_request(
+    request: AgentRunHttpRequest,
+    file_path: Path | None,
+) -> AgentRunRequest:
+    allowed_tools = tuple(request.allowed_tools or DEFAULT_AGENT_TOOLS)
+    return AgentRunRequest(
+        user_message=request.message,
+        file_path=file_path,
+        sheet_name=request.sheet_name,
+        allowed_tools=allowed_tools if file_path is not None else (),
+        direct_tool_call=(
+            ToolCall(
+                name=request.requested_tool,
+                arguments={
+                    "file_path": str(file_path),
+                    "sheet_name": request.sheet_name,
+                },
+            )
+            if request.requested_tool and request.sheet_name and file_path
+            else None
+        ),
+    )
+
+
+def _to_agent_run_response(result: AgentRunResult) -> AgentRunResponse:
     return AgentRunResponse(
         answer=result.answer,
         provider_name=result.provider_name,
         model_name=result.model_name,
+        execution_events=[
+            _to_agent_run_event_response(event)
+            for event in result.execution_events
+        ],
         tool_results=[
             AgentToolResultResponse(
                 tool_name=tool_result.tool_name,
@@ -289,6 +353,82 @@ async def run_agent(
             for tool_result in result.tool_results
         ],
     )
+
+
+def _to_agent_run_event_response(event: AgentRunEvent) -> AgentRunEventResponse:
+    return AgentRunEventResponse(
+        event_type=event.event_type,
+        title=event.title,
+        message=event.message,
+        status=event.status,
+        tool_name=event.tool_name,
+        provider_name=event.provider_name,
+        model_name=event.model_name,
+    )
+
+
+def _stream_agent_run(
+    orchestrator: AgentOrchestrator,
+    request: AgentRunRequest,
+) -> Iterator[str]:
+    queue: Queue[object] = Queue()
+
+    def run_worker() -> None:
+        try:
+            result = orchestrator.run(request, event_sink=queue.put)
+            for answer_chunk in _split_answer_for_streaming(result.answer):
+                queue.put(
+                    AgentRunEvent(
+                        event_type="answer_delta",
+                        title="Réponse en cours",
+                        message=answer_chunk,
+                        status="streaming",
+                        provider_name=result.provider_name,
+                        model_name=result.model_name,
+                    ),
+                )
+            queue.put(result)
+        except Exception:
+            queue.put(
+                AgentRunEvent(
+                    event_type="run_failed",
+                    title="Analyse interrompue",
+                    message="L'analyse n'a pas pu être terminée.",
+                    status="error",
+                ),
+            )
+        finally:
+            queue.put(None)
+
+    Thread(target=run_worker, daemon=True).start()
+
+    while True:
+        item = queue.get()
+        if item is None:
+            break
+        if isinstance(item, AgentRunEvent):
+            yield _to_ndjson_line(
+                event_type="event",
+                data=_to_agent_run_event_response(item).model_dump(),
+            )
+        if isinstance(item, AgentRunResult):
+            yield _to_ndjson_line(
+                event_type="result",
+                data=_to_agent_run_response(item).model_dump(mode="json"),
+            )
+
+
+def _split_answer_for_streaming(answer: str) -> Iterator[str]:
+    for chunk in (part.strip() for part in answer.splitlines()):
+        if chunk:
+            yield chunk
+
+
+def _to_ndjson_line(event_type: str, data: dict[str, object]) -> str:
+    return json.dumps(
+        {"type": event_type, "data": data},
+        ensure_ascii=False,
+    ) + "\n"
 
 
 def _to_error_response(

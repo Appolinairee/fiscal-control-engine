@@ -34,7 +34,7 @@ export default function AgentPromptCard() {
     isResponding,
     uploadError,
     preAnalysisError,
-    chatExchange,
+    messages,
     addFile,
     removeFile,
     submitPrompt,
@@ -50,7 +50,7 @@ export default function AgentPromptCard() {
     Boolean(pendingFile) ||
     Boolean(uploadError) ||
     Boolean(preAnalysisError) ||
-    Boolean(chatExchange) ||
+    messages.length > 0 ||
     isUploading ||
     isPreAnalyzing ||
     isResponding;
@@ -67,7 +67,7 @@ export default function AgentPromptCard() {
         hasWorkspaceContent ? "justify-between" : "justify-center"
       }`}
     >
-      <AgentConversation chatExchange={chatExchange} isResponding={isResponding} />
+      <AgentConversation messages={messages} />
       <div
         className={`z-10 bg-white pb-2 pt-4 ${
           hasWorkspaceContent ? "sticky bottom-0 mt-auto" : ""
@@ -75,7 +75,7 @@ export default function AgentPromptCard() {
       >
         <AgentPromptShell>
           <AgentPromptInput
-            attachedFile={chatExchange ? null : attachedFile}
+            attachedFile={attachedFile}
             pendingFile={pendingFile}
             isUploading={isUploading}
             isPreAnalyzing={isPreAnalyzing}

@@ -26,6 +26,7 @@ def test_smoke_check_returns_provider_metadata_without_model_text() -> None:
         ModelMessage(role="user", content="Reponds uniquement: ok"),
     )
     assert provider.last_request.allowed_tools == ()
+    assert provider.last_request.max_output_tokens == 300
 
 
 class FakeModelProvider:

@@ -42,10 +42,15 @@ Checklist operationnelle du chantier front. Les cases seront cochees au fur et a
 - [x] Garder l'agent en attente tant qu'aucun message utilisateur n'est soumis.
 - [x] A la soumission utilisateur, garder le chat fixe en bas et afficher la reponse agent en haut.
 - [x] A la soumission utilisateur, deplacer le fichier de l'input vers la conversation haute.
+- [x] Afficher le fichier soumis comme une vraie carte ouvrable avec icone, nom et meta.
+- [x] Garder la conversation en flux continu: un nouveau message s'ajoute sans remplacer les precedents.
 - [x] Autoriser une question agent sans fichier Excel attache.
 - [x] Garder le prompt centre a l'etat initial, puis fixe en bas des qu'il y a du contenu.
 - [x] Definir les scrolls: colonne agent en scroll interne, reponse en haut, prompt fixe en bas.
 - [x] Afficher un loading intelligent avec etapes d'execution haut niveau.
+- [x] Brancher le chat sur `POST /api/agent/runs/stream` pour afficher les evenements API au fil de l'eau.
+- [x] Garder `POST /api/agent/runs` en fallback si le stream n'est pas disponible.
+- [x] Formatter les reponses agent en Markdown simple: paragraphes, titres et listes.
 - [x] Ne pas afficher les métriques deterministes comme une reponse agent.
 - [ ] Afficher les resultats de mapping et anomalies.
 

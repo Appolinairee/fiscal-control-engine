@@ -13,6 +13,7 @@ export type AgentAttachedFile = {
   fileId: string;
   filename: string;
   sizeBytes: number;
+  previewUrl: string | null;
   expiresAt: string;
   sheetNames: string[];
   selectedSheetName: string;
@@ -25,10 +26,21 @@ export type AgentErrorResponse = {
   };
 };
 
+export type AgentRunEvent = {
+  event_type: string;
+  title: string;
+  message: string;
+  status: "completed" | "running" | "streaming" | "error" | string;
+  tool_name: string | null;
+  provider_name: string | null;
+  model_name: string | null;
+};
+
 export type AgentRunResponse = {
   answer: string;
   provider_name: string;
   model_name: string;
+  execution_events: AgentRunEvent[];
   tool_results: Array<{
     tool_name: string;
     ok: boolean;
@@ -44,6 +56,16 @@ export type AgentRunRequest = {
   fileId?: string;
   sheetName?: string;
 };
+
+export type AgentRunStreamMessage =
+  | {
+      type: "event";
+      data: AgentRunEvent;
+    }
+  | {
+      type: "result";
+      data: AgentRunResponse;
+    };
 
 export type LedgerAnalysisSchema = {
   is_valid: boolean;
@@ -69,9 +91,21 @@ export type LedgerPreAnalysis = {
   columns: LedgerAnalysisColumn[];
 };
 
-export type AgentChatExchange = {
-  question: string;
-  answer: string | null;
-  attachedFile: AgentAttachedFile | null;
-  preAnalysis: LedgerPreAnalysis | null;
-};
+export type AgentConversationMessage =
+  | {
+      id: string;
+      role: "user";
+      content: string;
+      attachedFile: AgentAttachedFile | null;
+    }
+  | {
+      id: string;
+      role: "assistant";
+      content: string | null;
+      status: "loading" | "done" | "error";
+      hasFileContext: boolean;
+      preAnalysis: LedgerPreAnalysis | null;
+      executionEvents: AgentRunEvent[];
+      providerName: string | null;
+      modelName: string | null;
+    };

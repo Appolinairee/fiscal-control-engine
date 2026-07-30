@@ -143,3 +143,119 @@ export const ArrowUpIcon = (props: SVGProps<SVGSVGElement>) => (
     />
   </svg>
 );
+
+export const DocumentTextIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      d="M21 7V17C21 20 19.5 22 16 22H8C4.5 22 3 20 3 17V7C3 4 4.5 2 8 2H16C19.5 2 21 4 21 7Z"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeMiterlimit="10"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M14.5 4.5V6.5C14.5 7.6 15.4 8.5 16.5 8.5H18.5"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeMiterlimit="10"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M8 13H12"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeMiterlimit="10"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M8 17H16"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeMiterlimit="10"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+export const ClockIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      d="M22 12C22 17.52 17.52 22 12 22C6.48 22 2 17.52 2 12C2 6.48 6.48 2 12 2C17.52 2 22 6.48 22 12Z"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M15.71 15.18L12.61 13.33C12.07 13.01 11.63 12.24 11.63 11.61V7.51001"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+export const TickCircleIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      d="M12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22Z"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M7.75 12L10.58 14.83L16.25 9.17004"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+export const ChevronRightIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      d="M8.91003 19.9201L15.43 13.4001C16.2 12.6301 16.2 11.3701 15.43 10.6001L8.91003 4.08008"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeMiterlimit="10"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);

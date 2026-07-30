@@ -21,7 +21,7 @@ class LLMProviderSmokeCheck:
                 messages=(ModelMessage(role="user", content="Reponds uniquement: ok"),),
                 allowed_tools=(),
                 temperature=0.0,
-                max_output_tokens=10,
+                max_output_tokens=300,
                 timeout_seconds=10.0,
             ),
         )

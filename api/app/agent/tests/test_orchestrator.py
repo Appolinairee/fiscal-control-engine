@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.agent.orchestrator import AgentOrchestrator, AgentRunRequest
+from app.agent.orchestrator import AgentOrchestrator, AgentRunEvent, AgentRunRequest
 from app.excel_agent.excel_tools import ExcelAgentTools
 from app.excel_agent.tests.fixtures import write_minified_grand_livre
 from app.excel_agent.tool_executor import ExcelToolExecutor
@@ -35,6 +35,7 @@ def test_orchestrator_returns_model_answer_without_tool_call(tmp_path: Path) -> 
         AgentRunRequest(
             user_message="Que peux-tu faire ?",
             file_path=None,
+            sheet_name=None,
             allowed_tools=("profile_sheet",),
         ),
     )
@@ -43,6 +44,11 @@ def test_orchestrator_returns_model_answer_without_tool_call(tmp_path: Path) -> 
     assert result.tool_results == ()
     assert result.provider_name == "fake"
     assert result.model_name == "fake-model"
+    assert [event.event_type for event in result.execution_events] == [
+        "run_started",
+        "model_requested",
+        "answer_ready",
+    ]
 
 
 def test_orchestrator_executes_excel_tool_then_requests_final_answer(
@@ -81,6 +87,7 @@ def test_orchestrator_executes_excel_tool_then_requests_final_answer(
         AgentRunRequest(
             user_message="Profile ce Grand Livre.",
             file_path=workbook_path,
+            sheet_name="Grand Livre",
             allowed_tools=("profile_sheet",),
         ),
     )
@@ -90,6 +97,22 @@ def test_orchestrator_executes_excel_tool_then_requests_final_answer(
     assert result.tool_results[0].output["row_count"] == 4
     assert result.provider_name == "fake"
     assert result.model_name == "fake-model"
+    assert [event.event_type for event in result.execution_events] == [
+        "run_started",
+        "file_checked",
+        "model_requested",
+        "tool_requested",
+        "tool_started",
+        "tool_finished",
+        "model_requested",
+        "answer_ready",
+    ]
+    assert result.execution_events[3].message == (
+        "Analyse de la feuille Excel prête."
+    )
+    assert result.execution_events[5].message == (
+        "L'analyse de la feuille Excel est terminée: 4 lignes, 5 colonnes."
+    )
     assert model.calls == 2
     assert model.requests[0].tool_definitions
     assert model.requests[0].tool_definitions[0].name == "profile_sheet"
@@ -121,6 +144,7 @@ def test_orchestrator_refuses_disallowed_tool_call(tmp_path: Path) -> None:
         AgentRunRequest(
             user_message="Supprime le fichier.",
             file_path=workbook_path,
+            sheet_name="Grand Livre",
             allowed_tools=("profile_sheet",),
         ),
     )
@@ -157,6 +181,7 @@ def test_orchestrator_refuses_invalid_tool_arguments(tmp_path: Path) -> None:
         AgentRunRequest(
             user_message="Profile ce Grand Livre.",
             file_path=workbook_path,
+            sheet_name=None,
             allowed_tools=("profile_sheet",),
         ),
     )
@@ -168,6 +193,49 @@ def test_orchestrator_refuses_invalid_tool_arguments(tmp_path: Path) -> None:
     assert result.provider_name == "fake"
     assert result.model_name == "fake-model"
     assert model.calls == 1
+
+
+def test_orchestrator_injects_request_file_and_sheet_into_tool_call(
+    tmp_path: Path,
+) -> None:
+    workbook_path = write_minified_grand_livre(tmp_path)
+    model = FakeModelProvider(
+        responses=(
+            ModelResponse(
+                text="",
+                provider_name="fake",
+                model_name="fake-model",
+                finish_reason="tool_calls",
+                tool_calls=(
+                    ToolCall(
+                        name="profile_sheet",
+                        arguments={},
+                    ),
+                ),
+            ),
+            ModelResponse(
+                text="Analyse prête.",
+                provider_name="fake",
+                model_name="fake-model",
+                finish_reason="stop",
+                tool_calls=(),
+            ),
+        ),
+    )
+    orchestrator = _create_orchestrator(tmp_path, model)
+
+    result = orchestrator.run(
+        AgentRunRequest(
+            user_message="Profile ce Grand Livre.",
+            file_path=workbook_path,
+            sheet_name="Grand Livre",
+            allowed_tools=("profile_sheet",),
+        ),
+    )
+
+    assert result.answer == "Analyse prête."
+    assert result.tool_results[0].ok is True
+    assert result.tool_results[0].output["sheet_name"] == "Grand Livre"
 
 
 def test_orchestrator_limits_tool_calls(tmp_path: Path) -> None:
@@ -215,6 +283,7 @@ def test_orchestrator_limits_tool_calls(tmp_path: Path) -> None:
         AgentRunRequest(
             user_message="Analyse le fichier.",
             file_path=workbook_path,
+            sheet_name="Grand Livre",
             allowed_tools=("list_sheets", "profile_sheet"),
         ),
     )
@@ -246,6 +315,7 @@ def test_orchestrator_uses_model_fallback(tmp_path: Path) -> None:
         AgentRunRequest(
             user_message="Analyse le fichier.",
             file_path=None,
+            sheet_name=None,
             allowed_tools=("profile_sheet",),
         ),
     )
@@ -253,6 +323,7 @@ def test_orchestrator_uses_model_fallback(tmp_path: Path) -> None:
     assert result.answer == "Reponse du modele fallback."
     assert result.provider_name == "secondary"
     assert result.model_name == "model-b"
+    assert "fallback_used" in [event.event_type for event in result.execution_events]
 
 
 def test_orchestrator_returns_internal_model_for_direct_tool_call(
@@ -266,6 +337,7 @@ def test_orchestrator_returns_internal_model_for_direct_tool_call(
         AgentRunRequest(
             user_message="Analyse deterministe.",
             file_path=workbook_path,
+            sheet_name="Grand Livre",
             allowed_tools=("profile_sheet",),
             direct_tool_call=ToolCall(
                 name="profile_sheet",
@@ -281,7 +353,46 @@ def test_orchestrator_returns_internal_model_for_direct_tool_call(
     assert result.tool_results[0].ok is True
     assert result.provider_name == "internal"
     assert result.model_name == "direct-tool-call"
+    assert [event.event_type for event in result.execution_events] == [
+        "run_started",
+        "file_checked",
+        "tool_started",
+        "tool_finished",
+        "answer_ready",
+    ]
     assert model.calls == 0
+
+
+def test_orchestrator_emits_safe_user_facing_events(tmp_path: Path) -> None:
+    secret_path = tmp_path / "secret-client.xlsx"
+    model = FakeModelProvider(
+        responses=(
+            ModelResponse(
+                text="Analyse prête.",
+                provider_name="fake",
+                model_name="fake-model",
+                finish_reason="stop",
+                tool_calls=(),
+            ),
+        ),
+    )
+    emitted_events: list[AgentRunEvent] = []
+    orchestrator = _create_orchestrator(tmp_path, model)
+
+    result = orchestrator.run(
+        AgentRunRequest(
+            user_message="Analyse /secret/client.xlsx",
+            file_path=secret_path,
+            sheet_name="Grand Livre",
+            allowed_tools=("profile_sheet",),
+        ),
+        event_sink=emitted_events.append,
+    )
+
+    serialized_events = repr(result.execution_events)
+    assert emitted_events == list(result.execution_events)
+    assert "/secret/client.xlsx" not in serialized_events
+    assert str(secret_path) not in serialized_events
 
 
 def test_orchestrator_blocks_direct_tax_decision_in_answer(tmp_path: Path) -> None:
@@ -304,6 +415,7 @@ def test_orchestrator_blocks_direct_tax_decision_in_answer(tmp_path: Path) -> No
         AgentRunRequest(
             user_message="Ce compte est-il soumis a la RAS ?",
             file_path=None,
+            sheet_name=None,
             allowed_tools=("profile_sheet",),
         ),
     )
@@ -338,6 +450,7 @@ def test_orchestrator_blocks_oversized_answer(tmp_path: Path) -> None:
         AgentRunRequest(
             user_message="Resume.",
             file_path=None,
+            sheet_name=None,
             allowed_tools=("profile_sheet",),
         ),
     )
@@ -372,6 +485,7 @@ def test_orchestrator_blocks_run_when_global_timeout_is_exceeded(
         AgentRunRequest(
             user_message="Analyse le fichier.",
             file_path=None,
+            sheet_name=None,
             allowed_tools=("profile_sheet",),
         ),
     )

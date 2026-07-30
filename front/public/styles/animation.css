@@ -53,6 +53,19 @@
     }
 }
 
+@keyframes agent-thinking-light {
+    0%,
+    100% {
+        opacity: 0.46;
+        text-shadow: 0 0 0 rgba(160, 186, 198, 0);
+    }
+
+    50% {
+        opacity: 1;
+        text-shadow: 0 0 18px rgba(160, 186, 198, 0.72);
+    }
+}
+
 @keyframes public-company-ai-panel {
     0% {
         transform: translateY(18px) scale(0.98);
@@ -130,6 +143,10 @@
 
 .animate-wave-pulse {
     animation: wave-pulse 4s ease-in-out infinite;
+}
+
+.agent-thinking-light {
+    animation: agent-thinking-light 1.8s ease-in-out infinite;
 }
 
 .animate-public-company-ai-panel {

@@ -13,7 +13,7 @@
     "api:typecheck": "docker compose run --rm -e PYTHONPATH=. api uv run --extra dev mypy app tests scripts",
     "compose:down": "docker compose down",
     "compose:up": "docker compose up",
-    "secrets:check": "python3 api/scripts/secret_scanner.py ."
+    "secrets:check": "git ls-files -z | xargs -0 python3 api/scripts/secret_scanner.py"
   },
   "engines": {
     "node": ">=22",
