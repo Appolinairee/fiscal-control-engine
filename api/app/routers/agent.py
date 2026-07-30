@@ -328,7 +328,7 @@ def _to_agent_run_request(
     request: AgentRunHttpRequest,
     file_path: Path | None,
 ) -> AgentRunRequest:
-    allowed_tools = tuple(request.allowed_tools or DEFAULT_AGENT_TOOLS)
+    allowed_tools = _effective_allowed_tools(request.allowed_tools)
     return AgentRunRequest(
         user_message=request.message,
         file_path=file_path,
@@ -346,6 +346,12 @@ def _to_agent_run_request(
             else None
         ),
     )
+
+
+def _effective_allowed_tools(requested_tools: list[str]) -> tuple[str, ...]:
+    if not requested_tools:
+        return DEFAULT_AGENT_TOOLS
+    return tuple(dict.fromkeys((*requested_tools, *DEFAULT_AGENT_TOOLS)))
 
 
 def _to_agent_run_response(result: AgentRunResult) -> AgentRunResponse:

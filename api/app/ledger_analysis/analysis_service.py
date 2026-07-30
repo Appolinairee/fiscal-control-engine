@@ -74,6 +74,9 @@ class LedgerQueryReport:
     total_matches: int
     page: int
     page_size: int
+    filters: dict[str, object]
+    returned_columns: tuple[str, ...]
+    message: str
     entries: tuple[dict[str, object], ...]
 
 
@@ -217,6 +220,9 @@ class LedgerAnalysisService:
             total_matches=len(dataframe),
             page=safe_page,
             page_size=safe_page_size,
+            filters=_safe_query_filters(filters),
+            returned_columns=_returned_query_columns(canonical_frame.fields),
+            message=_query_message(len(dataframe)),
             entries=entries,
         )
 
@@ -419,6 +425,37 @@ def _serialize_query_row(
             continue
         serialized_row[canonical_field] = _stable_cell_value(row[source_column])
     return serialized_row
+
+
+def _returned_query_columns(fields: dict[str, str]) -> tuple[str, ...]:
+    return tuple(
+        canonical_field
+        for canonical_field in LEDGER_QUERY_OUTPUT_FIELDS
+        if canonical_field in fields
+    )
+
+
+def _safe_query_filters(filters: dict[str, object]) -> dict[str, object]:
+    allowed_filter_names = {
+        "account",
+        "period",
+        "tax_code",
+        "vendor",
+        "customer",
+        "amount_min",
+        "amount_max",
+    }
+    return {
+        filter_name: filter_value
+        for filter_name, filter_value in filters.items()
+        if filter_name in allowed_filter_names and filter_value is not None
+    }
+
+
+def _query_message(total_matches: int) -> str:
+    if total_matches == 0:
+        return "Aucune écriture ne correspond aux filtres fournis."
+    return "Écritures trouvées pour les filtres fournis."
 
 
 def _calculate_metrics(

@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from unicodedata import normalize
@@ -21,6 +22,20 @@ def route_deterministic_tool_calls(
 
     message = _normalize_for_intent(request.user_message)
     requested_tools: list[str] = []
+    query_filters = _ledger_query_filters(message)
+    if query_filters and "query_ledger_entries" in request.allowed_tools:
+        return (
+            ToolCall(
+                name="query_ledger_entries",
+                arguments={
+                    "file_path": str(request.file_path),
+                    "sheet_name": request.sheet_name,
+                    "filters": query_filters,
+                    "page": 1,
+                    "page_size": 20,
+                },
+            ),
+        )
     if _mentions_data_quality(message):
         requested_tools.append("detect_data_quality_issues")
     if _mentions_tax_candidates(message):
@@ -52,6 +67,20 @@ def _mentions_data_quality(message: str) -> bool:
             "tiers absent",
         )
     )
+
+
+def _ledger_query_filters(message: str) -> dict[str, object]:
+    account = _extract_account_filter(message)
+    if account is None:
+        return {}
+    return {"account": account}
+
+
+def _extract_account_filter(message: str) -> str | None:
+    account_match = re.search(r"\b(?:compte|account)\s+([0-9]{5,12})\b", message)
+    if account_match is not None:
+        return account_match.group(1)
+    return None
 
 
 def _mentions_tax_candidates(message: str) -> bool:

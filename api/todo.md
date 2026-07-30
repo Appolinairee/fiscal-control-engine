@@ -296,9 +296,30 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les controles de secrets avant merge via script local et CI.
 - [ ] Ajouter une strategie CD apres validation de l'environnement cible.
 
-## Migration Infrastructure Future
+## Sessions Agent, Fichiers et Requetes Deterministes
 
-- [ ] Introduire PostgreSQL uniquement apres validation du POC CSV/Pandas.
-- [ ] Ajouter une implementation PostgreSQL de `AccountMappingRepository`.
-- [ ] Ajouter les migrations versionnees, par exemple avec Alembic si SQLAlchemy est retenu.
+- [ ] Persister les references `session_id` / `file_id` pour ne pas perdre les uploads apres reload API.
+- [ ] Retourner des erreurs stables si un fichier est expire, supprime ou introuvable: `file_expired`, `file_missing`.
+- [ ] Ajouter un contrat front stable pour les fichiers agent: statut, expiration, nom original safe, taille, type MIME, dates.
+- [x] Renforcer le routeur deterministe de questions: detecter un compte et router vers `query_ledger_entries`.
+- [ ] Renforcer le routeur deterministe de questions: detecter periode, TVA, fournisseur, client, montant min/max.
+- [x] Construire automatiquement les arguments tool fiables, par exemple `{"filters": {"account": "44585100"}}`.
+- [x] Appliquer une pagination par defaut et une limite stricte des lignes retournees pour `query_ledger_entries`.
+- [x] Stabiliser le payload `query_ledger_entries`: total trouve, page affichee, page_size, filtres, colonnes retournees, entries.
+- [x] Retourner un message clair et structure si une requete ledger donne 0 resultat.
+- [ ] Retourner `invalid_filter` quand un filtre utilisateur ne peut pas etre interprete proprement.
+- [x] Ajouter les tests metier: question compte -> `query_ledger_entries`.
+- [ ] Ajouter les tests metier: compte + periode -> `query_ledger_entries`.
+- [x] Ajouter les tests metier: compte inexistant -> 0 resultat + message clair.
+- [x] Ajouter les tests metier: pagination stricte et limite de lignes.
+- [ ] Ajouter les tests metier: fichier expire/supprime -> code `file_expired` ou `file_missing`.
+
+## Migration Infrastructure Prioritaire
+
+- [ ] Introduire PostgreSQL pour les metadonnees agent, pas pour remplacer les calculs Excel immediatement.
+- [ ] Ajouter les dependances DB et migrations versionnees, par exemple SQLAlchemy + Alembic si retenus.
+- [ ] Creer les tables minimales: `agent_sessions`, `agent_files`, `agent_messages`, `agent_runs`, `agent_run_events`.
+- [ ] Persister les fichiers eux-memes sur disque ou storage, et stocker seulement les metadonnees en base.
+- [ ] Remplacer l'index memoire des uploads par un repository persistant.
 - [ ] Conserver les endpoints et contrats existants pendant la migration.
+- [ ] Ajouter plus tard une implementation PostgreSQL de `AccountMappingRepository` si le besoin metier le justifie.

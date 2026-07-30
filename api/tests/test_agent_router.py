@@ -95,12 +95,11 @@ def test_agent_run_endpoint_returns_orchestrated_answer() -> None:
             },
         ],
     }
-    assert fake_orchestrator.last_request == AgentRunRequest(
-        user_message="Profile ce Grand Livre.",
-        file_path=Path("grand_livre_minifie.xlsx"),
-        sheet_name=None,
-        allowed_tools=("profile_sheet",),
-    )
+    assert fake_orchestrator.last_request is not None
+    assert fake_orchestrator.last_request.user_message == "Profile ce Grand Livre."
+    assert fake_orchestrator.last_request.file_path == Path("grand_livre_minifie.xlsx")
+    assert "profile_sheet" in fake_orchestrator.last_request.allowed_tools
+    assert "query_ledger_entries" in fake_orchestrator.last_request.allowed_tools
 
 
 def test_agent_run_endpoint_accepts_session_file_reference() -> None:
@@ -139,12 +138,13 @@ def test_agent_run_endpoint_accepts_session_file_reference() -> None:
     )
 
     assert response.status_code == 200
-    assert fake_orchestrator.last_request == AgentRunRequest(
-        user_message="Profile le fichier de session.",
-        file_path=Path("/server/session/file.xlsx"),
-        sheet_name=None,
-        allowed_tools=("profile_sheet",),
+    assert fake_orchestrator.last_request is not None
+    assert fake_orchestrator.last_request.user_message == (
+        "Profile le fichier de session."
     )
+    assert fake_orchestrator.last_request.file_path == Path("/server/session/file.xlsx")
+    assert "profile_sheet" in fake_orchestrator.last_request.allowed_tools
+    assert "query_ledger_entries" in fake_orchestrator.last_request.allowed_tools
 
 
 def test_agent_run_endpoint_allows_ledger_analysis_by_default() -> None:
@@ -176,6 +176,40 @@ def test_agent_run_endpoint_allows_ledger_analysis_by_default() -> None:
     assert response.status_code == 200
     assert fake_orchestrator.last_request is not None
     assert "analyze_ledger" in fake_orchestrator.last_request.allowed_tools
+    assert "query_ledger_entries" in fake_orchestrator.last_request.allowed_tools
+
+
+def test_agent_run_endpoint_keeps_default_safe_tools_with_legacy_tools() -> None:
+    app = create_app()
+    fake_orchestrator = FakeAgentOrchestrator(
+        AgentRunResult(
+            answer="OK",
+            provider_name="fake",
+            model_name="fake-model",
+            execution_events=(),
+            tool_results=(),
+        ),
+    )
+
+    async def override_orchestrator() -> FakeAgentOrchestrator:
+        return fake_orchestrator
+
+    app.dependency_overrides[get_agent_orchestrator] = override_orchestrator
+
+    response = _post(
+        app,
+        "/api/agent/runs",
+        json={
+            "message": "Montre-moi les écritures du compte 44585100.",
+            "file_path": "grand_livre_minifie.xlsx",
+            "sheet_name": "Grand Livre",
+            "allowed_tools": ["list_sheets", "get_columns", "analyze_ledger"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert fake_orchestrator.last_request is not None
+    assert "query_ledger_entries" in fake_orchestrator.last_request.allowed_tools
 
 
 def test_agent_upload_then_run_uses_stored_session_reference(tmp_path: Path) -> None:
@@ -233,7 +267,8 @@ def test_agent_upload_then_run_uses_stored_session_reference(tmp_path: Path) -> 
     assert fake_orchestrator.last_request.file_path is not None
     assert fake_orchestrator.last_request.file_path.is_file()
     assert fake_orchestrator.last_request.file_path.suffix == ".xlsx"
-    assert fake_orchestrator.last_request.allowed_tools == ("analyze_ledger",)
+    assert "analyze_ledger" in fake_orchestrator.last_request.allowed_tools
+    assert "query_ledger_entries" in fake_orchestrator.last_request.allowed_tools
 
 
 def test_agent_upload_then_run_executes_ledger_analysis_tool(

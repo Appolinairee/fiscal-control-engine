@@ -302,6 +302,34 @@ def test_executor_queries_ledger_entries_with_pagination_and_allowed_columns() -
     assert "601000" not in serialized_output
 
 
+def test_executor_queries_real_anonymized_account_with_stable_payload() -> None:
+    docs_root = _docs_root()
+    workbook_path = docs_root / "GL_anonymise_2500.xlsx"
+    executor = _create_executor(docs_root)
+
+    result = executor.execute(
+        ToolCall(
+            name="query_ledger_entries",
+            arguments={
+                "file_path": str(workbook_path),
+                "sheet_name": "Sheet1",
+                "filters": {"account": "44585100"},
+                "page": 1,
+                "page_size": 20,
+            },
+        ),
+    )
+
+    assert result.ok is True
+    assert result.output["total_matches"] == 203
+    assert result.output["page"] == 1
+    assert result.output["page_size"] == 20
+    assert result.output["filters"] == {"account": "44585100"}
+    assert "account" in result.output["returned_columns"]
+    assert len(result.output["entries"]) == 20
+    assert result.output["message"] == "Écritures trouvées pour les filtres fournis."
+
+
 def test_executor_calculates_ledger_metrics_without_cell_values() -> None:
     docs_root = _docs_root()
     workbook_path = docs_root / "GL_anonymise_2500.xlsx"

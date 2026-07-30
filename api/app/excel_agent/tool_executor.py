@@ -239,6 +239,9 @@ def _serialize_result(
             "total_matches": result.total_matches,
             "page": result.page,
             "page_size": result.page_size,
+            "filters": result.filters,
+            "returned_columns": list(result.returned_columns),
+            "message": result.message,
             "entries": list(result.entries),
         }
     if isinstance(result, LedgerMetricsReport):

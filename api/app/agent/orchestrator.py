@@ -784,6 +784,12 @@ def _compact_tool_output(tool_result: ToolExecutionResult) -> dict[str, object]:
         "aggregations",
         "metrics",
         "total_matches",
+        "filters",
+        "page",
+        "page_size",
+        "returned_columns",
+        "message",
+        "entries",
     ):
         if key in output:
             compact_output[key] = output[key]

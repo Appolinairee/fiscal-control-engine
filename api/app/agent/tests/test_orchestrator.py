@@ -300,6 +300,42 @@ def test_orchestrator_routes_tax_candidates_before_model_call(tmp_path: Path) ->
     assert model.requests[0].allowed_tools == ()
 
 
+def test_orchestrator_routes_account_question_to_ledger_query(tmp_path: Path) -> None:
+    workbook_path = write_minified_grand_livre(tmp_path)
+    model = FakeModelProvider(
+        responses=(
+            ModelResponse(
+                text="Aucune écriture trouvée pour ce compte.",
+                provider_name="fake",
+                model_name="fake-model",
+                finish_reason="stop",
+                tool_calls=(),
+            ),
+        ),
+    )
+    orchestrator = _create_orchestrator(tmp_path, model)
+
+    result = orchestrator.run(
+        AgentRunRequest(
+            user_message="Montre-moi toutes les écritures du compte 44585100.",
+            file_path=workbook_path,
+            sheet_name="Grand Livre",
+            allowed_tools=("query_ledger_entries",),
+        ),
+    )
+
+    assert [tool_result.tool_name for tool_result in result.tool_results] == [
+        "query_ledger_entries",
+    ]
+    assert result.tool_results[0].output["total_matches"] == 0
+    assert result.tool_results[0].output["message"] == (
+        "Aucune écriture ne correspond aux filtres fournis."
+    )
+    assert model.calls == 1
+    assert model.requests[0].allowed_tools == ()
+    assert "44585100" in model.requests[0].messages[-1].content
+
+
 def test_orchestrator_refuses_disallowed_tool_call(tmp_path: Path) -> None:
     workbook_path = write_minified_grand_livre(tmp_path)
     model = FakeModelProvider(
