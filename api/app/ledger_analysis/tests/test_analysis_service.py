@@ -58,4 +58,4 @@ def test_service_reports_grand_livre_with_missing_required_column(
     report = service.analyze(workbook_path, sheet_name="Grand Livre")
 
     assert report.schema_report.is_valid is False
-    assert report.schema_report.missing_required_columns == ("Compte",)
+    assert report.schema_report.missing_required_columns == ("account",)

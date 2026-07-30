@@ -30,6 +30,22 @@ Checklist operationnelle du chantier front. Les cases seront cochees au fur et a
 - [x] Laisser les colonnes laterales vides avec seulement les separateurs.
 - [ ] Prevoir la table de travail en panneau bas masque.
 
+## Sidebar AI
+
+- [x] Remplacer la colonne gauche par une sidebar AI sobre inspiree ChatGPT.
+- [x] Retirer le titre `Conversations` et les icones sur les lignes de conversation.
+- [x] Ajouter les actions `Nouveau chat`, `Fichiers` et `Rechercher` sans couleur primaire forte.
+- [x] Donner a `Nouveau chat` un fond actif doux par defaut.
+- [x] Supprimer le bloc bas `Fiscal Agent` / `Pret a analyser`.
+- [x] Harmoniser la sidebar avec la palette light du dashboard agent.
+- [x] Garder des rounded legers sur les conversations pour les etats hover/actif.
+- [x] Afficher les conversations recentes en liste compacte avec anciens repliables.
+- [x] Regrouper les fichiers dans un seul bouton ouvrant un modal.
+- [x] Utiliser le meme modal pour la recherche et la liste des fichiers.
+- [x] Centrer le modal recherche/fichiers avec scroll interne si le contenu deborde.
+- [ ] Brancher la sidebar sur un historique de conversations reel.
+- [ ] Brancher le modal fichiers sur les fichiers uploades reels.
+
 ## Integration Agent Excel
 
 - [x] Decoupler upload et analyse: l'upload valide seulement format/taille et retourne vite.

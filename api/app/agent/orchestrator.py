@@ -7,6 +7,10 @@ from typing import Protocol
 
 from app.agent.answer_policy import AgentAnswerPolicy
 from app.agent.constants import AGENT_RUN_TIMEOUT_ANSWER
+from app.agent.tool_router import (
+    DeterministicToolRouteRequest,
+    route_deterministic_tool_calls,
+)
 from app.excel_agent.domain import ToolExecutionResult
 from app.excel_agent.tool_executor import ExcelToolExecutor
 from app.llm.domain import (
@@ -135,6 +139,84 @@ class AgentOrchestrator:
                 execution_events=tuple(events),
                 tool_results=(tool_result,),
             )
+        routed_tool_calls = route_deterministic_tool_calls(
+            DeterministicToolRouteRequest(
+                user_message=request.user_message,
+                file_path=request.file_path,
+                sheet_name=request.sheet_name,
+                allowed_tools=request.allowed_tools,
+            ),
+        )
+        if routed_tool_calls:
+            stable_tool_results = self._execute_tool_calls(
+                tool_calls=routed_tool_calls[: self._max_tool_calls],
+                request=request,
+                emit=emit,
+                provider_name="internal",
+                model_name="deterministic-tool-router",
+            )
+            if self._has_timed_out(started_at):
+                return _timeout_result(tuple(events))
+            if any(not result.ok for result in stable_tool_results):
+                emit(
+                    AgentRunEvent(
+                        event_type="run_failed",
+                        title="Analyse arrêtée",
+                        message="L'analyse demandée ne peut pas être exécutée.",
+                        status="error",
+                        provider_name="internal",
+                        model_name="deterministic-tool-router",
+                    ),
+                )
+                return AgentRunResult(
+                    answer="Le tool call a ete refuse par les garde-fous.",
+                    provider_name="internal",
+                    model_name="deterministic-tool-router",
+                    execution_events=tuple(events),
+                    tool_results=stable_tool_results,
+                )
+            emit(
+                AgentRunEvent(
+                    event_type="model_requested",
+                    title="Réponse en cours",
+                    message="Préparation de la réponse.",
+                    status="running",
+                    provider_name=self._model_provider.provider_name,
+                ),
+            )
+            final_response = self._model_provider.generate(
+                _final_model_request(request, stable_tool_results),
+            )
+            _emit_fallback_if_needed(
+                provider_name=self._model_provider.provider_name,
+                response_provider_name=final_response.provider_name,
+                response_model_name=final_response.model_name,
+                emit=emit,
+            )
+            if self._has_timed_out(started_at):
+                return _timeout_result(tuple(events))
+            answer = _final_answer_from_model_or_tools(
+                final_response=final_response,
+                tool_results=stable_tool_results,
+                answer_policy=self._answer_policy,
+            )
+            emit(
+                AgentRunEvent(
+                    event_type="answer_ready",
+                    title="Réponse prête",
+                    message="Réponse prête.",
+                    status="completed",
+                    provider_name=final_response.provider_name,
+                    model_name=final_response.model_name,
+                ),
+            )
+            return AgentRunResult(
+                answer=answer,
+                provider_name=final_response.provider_name,
+                model_name=final_response.model_name,
+                execution_events=tuple(events),
+                tool_results=stable_tool_results,
+            )
         initial_model_request = _initial_model_request(
             request,
             tool_definitions=self._tool_executor.get_model_tool_definitions(
@@ -236,27 +318,13 @@ class AgentOrchestrator:
                 tool_results=(),
             )
 
-        tool_results = []
-        for tool_call in initial_response.tool_calls[: self._max_tool_calls]:
-            emit(
-                AgentRunEvent(
-                    event_type="tool_requested",
-                    title="Analyse préparée",
-                    message=f"{_tool_user_label(tool_call.name)} prête.",
-                    status="completed",
-                    tool_name=tool_call.name,
-                    provider_name=initial_response.provider_name,
-                    model_name=initial_response.model_name,
-                ),
-            )
-            emit(_tool_started_event(tool_call.name))
-            tool_result = self._execute_allowed_tool_call(
-                _with_request_context(tool_call, request),
-                request,
-            )
-            tool_results.append(tool_result)
-            emit(_tool_finished_event(tool_result))
-        stable_tool_results = tuple(tool_results)
+        stable_tool_results = self._execute_tool_calls(
+            tool_calls=initial_response.tool_calls[: self._max_tool_calls],
+            request=request,
+            emit=emit,
+            provider_name=initial_response.provider_name,
+            model_name=initial_response.model_name,
+        )
         if self._has_timed_out(started_at):
             return _timeout_result(tuple(events))
         if any(not result.ok for result in stable_tool_results):
@@ -339,6 +407,36 @@ class AgentOrchestrator:
     def _has_timed_out(self, started_at: float) -> bool:
         return self._monotonic() - started_at > self._max_run_seconds
 
+    def _execute_tool_calls(
+        self,
+        tool_calls: tuple[ToolCall, ...],
+        request: AgentRunRequest,
+        emit: Callable[[AgentRunEvent], None],
+        provider_name: str,
+        model_name: str,
+    ) -> tuple[ToolExecutionResult, ...]:
+        tool_results = []
+        for tool_call in tool_calls:
+            emit(
+                AgentRunEvent(
+                    event_type="tool_requested",
+                    title="Analyse préparée",
+                    message=f"{_tool_user_label(tool_call.name)} prête.",
+                    status="completed",
+                    tool_name=tool_call.name,
+                    provider_name=provider_name,
+                    model_name=model_name,
+                ),
+            )
+            emit(_tool_started_event(tool_call.name))
+            tool_result = self._execute_allowed_tool_call(
+                _with_request_context(tool_call, request),
+                request,
+            )
+            tool_results.append(tool_result)
+            emit(_tool_finished_event(tool_result))
+        return tuple(tool_results)
+
 
 def _timeout_result(events: tuple[AgentRunEvent, ...] = ()) -> AgentRunResult:
     timeout_event = AgentRunEvent(
@@ -413,7 +511,13 @@ def _tool_user_label(tool_name: str) -> str:
         "list_sheets": "Lecture des feuilles",
         "get_columns": "Lecture des colonnes",
         "profile_sheet": "Analyse de la feuille Excel",
+        "classify_ledger_schema": "Identification du sens des colonnes",
         "analyze_ledger": "Analyse du Grand Livre",
+        "aggregate_ledger": "Agrégation du Grand Livre",
+        "query_ledger_entries": "Recherche d'écritures",
+        "calculate_ledger_metrics": "Calcul de métriques",
+        "detect_data_quality_issues": "Contrôle qualité des données",
+        "detect_tax_candidates": "Détection des candidats fiscaux",
     }
     return labels.get(tool_name, "Analyse demandée")
 
@@ -424,11 +528,43 @@ def _tool_result_summary(tool_result: ToolExecutionResult) -> str:
             prefix="L'analyse de la feuille Excel est terminée",
             output=tool_result.output,
         )
+    if tool_result.tool_name == "classify_ledger_schema":
+        return "Le sens probable des colonnes a été identifié."
     if tool_result.tool_name == "analyze_ledger":
         return _rows_columns_summary(
             prefix="L'analyse du Grand Livre est terminée",
             output=tool_result.output,
         )
+    if tool_result.tool_name == "aggregate_ledger":
+        aggregation_count = len(tool_result.output.get("aggregations", ()))
+        return f"{aggregation_count} regroupement(s) du Grand Livre préparé(s)."
+    if tool_result.tool_name == "query_ledger_entries":
+        total_matches = tool_result.output.get("total_matches")
+        entries = tool_result.output.get("entries", ())
+        if isinstance(total_matches, int) and isinstance(entries, list):
+            return (
+                f"{len(entries)} écriture(s) retournée(s) "
+                f"sur {total_matches} correspondance(s)."
+            )
+        return "La recherche d'écritures est terminée."
+    if tool_result.tool_name == "calculate_ledger_metrics":
+        total_matches = tool_result.output.get("total_matches")
+        if isinstance(total_matches, int):
+            return (
+                "Les métriques demandées sont calculées "
+                f"sur {total_matches} écriture(s)."
+            )
+        return "Les métriques demandées sont calculées."
+    if tool_result.tool_name == "detect_data_quality_issues":
+        issue_count = tool_result.output.get("issue_count")
+        if isinstance(issue_count, int):
+            return f"{issue_count} point(s) de qualité détecté(s)."
+        return "Le contrôle qualité des données est terminé."
+    if tool_result.tool_name == "detect_tax_candidates":
+        candidates = tool_result.output.get("candidates", ())
+        if isinstance(candidates, list):
+            return f"{len(candidates)} catégorie(s) candidate(s) à revoir."
+        return "La détection des candidats fiscaux est terminée."
     if tool_result.tool_name == "list_sheets":
         sheet_count = len(tool_result.output.get("sheet_names", ()))
         return f"{sheet_count} feuille(s) détectée(s) dans le fichier."
@@ -496,7 +632,15 @@ def _deterministic_tool_answer(tool_result: ToolExecutionResult) -> str:
 def _deterministic_tool_results_answer(
     tool_results: tuple[ToolExecutionResult, ...],
 ) -> str:
-    for tool_name in ("analyze_ledger", "profile_sheet", "get_columns", "list_sheets"):
+    for tool_name in (
+        "detect_tax_candidates",
+        "detect_data_quality_issues",
+        "analyze_ledger",
+        "classify_ledger_schema",
+        "profile_sheet",
+        "get_columns",
+        "list_sheets",
+    ):
         for tool_result in reversed(tool_results):
             if tool_result.tool_name == tool_name and tool_result.ok:
                 return _deterministic_tool_answer(tool_result)
@@ -632,6 +776,14 @@ def _compact_tool_output(tool_result: ToolExecutionResult) -> dict[str, object]:
         "column_count",
         "schema",
         "columns",
+        "issue_count",
+        "severity_counts",
+        "issues",
+        "decision_status",
+        "candidates",
+        "aggregations",
+        "metrics",
+        "total_matches",
     ):
         if key in output:
             compact_output[key] = output[key]

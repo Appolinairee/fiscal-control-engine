@@ -164,8 +164,260 @@ def test_executor_analyzes_minified_grand_livre_without_cell_values(
     assert "601000" not in serialized_output
 
 
+def test_executor_classifies_anonymized_ledger_schema_without_cell_values() -> None:
+    docs_root = _docs_root()
+    workbook_path = docs_root / "GL_anonymise_2500.xlsx"
+    executor = _create_executor(docs_root)
+
+    result = executor.execute(
+        ToolCall(
+            name="classify_ledger_schema",
+            arguments={
+                "file_path": str(workbook_path),
+                "sheet_name": "Sheet1",
+            },
+        ),
+    )
+
+    assert result.ok is True
+    assert result.output["sheet_name"] == "Sheet1"
+    assert result.output["schema"]["is_usable"] is True
+    assert result.output["schema"]["requires_confirmation"] is False
+    mappings = {
+        mapping["canonical_field"]: mapping
+        for mapping in result.output["schema"]["mappings"]
+    }
+    assert mappings["account"]["source_column"] == "Compte"
+    assert mappings["amount"]["source_column"] == "Montant en devise interne"
+    assert mappings["tax_code"]["source_column"] == "Code TVA"
+    assert mappings["document_type"]["source_column"] == "Type de pièce"
+    serialized_output = repr(result.output)
+    assert "SAP" not in serialized_output
+    assert "Achat" not in serialized_output
+    assert "601000" not in serialized_output
+
+
+def test_executor_analyzes_anonymized_ledger_with_canonical_schema() -> None:
+    docs_root = _docs_root()
+    workbook_path = docs_root / "GL_anonymise_2500.xlsx"
+    executor = _create_executor(docs_root)
+
+    result = executor.execute(
+        ToolCall(
+            name="analyze_ledger",
+            arguments={
+                "file_path": str(workbook_path),
+                "sheet_name": "Sheet1",
+            },
+        ),
+    )
+
+    assert result.ok is True
+    assert result.output["sheet_name"] == "Sheet1"
+    assert result.output["row_count"] == 2500
+    assert result.output["schema"]["is_valid"] is True
+    assert result.output["schema"]["canonical_schema"]["is_usable"] is True
+    assert result.output["schema"]["canonical_schema"]["fields"]["account"] == "Compte"
+    assert (
+        result.output["schema"]["canonical_schema"]["fields"]["amount"]
+        == "Montant en devise interne"
+    )
+    assert result.output["schema"]["canonical_schema"]["fields"]["text"] == "Texte"
+    serialized_output = repr(result.output)
+    assert "Achat" not in serialized_output
+    assert "601000" not in serialized_output
+
+
+def test_executor_aggregates_anonymized_ledger_without_cell_values() -> None:
+    docs_root = _docs_root()
+    workbook_path = docs_root / "GL_anonymise_2500.xlsx"
+    executor = _create_executor(docs_root)
+
+    result = executor.execute(
+        ToolCall(
+            name="aggregate_ledger",
+            arguments={
+                "file_path": str(workbook_path),
+                "sheet_name": "Sheet1",
+                "group_by": ["account", "tax_code"],
+                "limit": 5,
+            },
+        ),
+    )
+
+    assert result.ok is True
+    assert result.output["sheet_name"] == "Sheet1"
+    assert result.output["row_count"] == 2500
+    assert result.output["amount_field"] == "Montant en devise interne"
+    by_account = result.output["aggregations"]["account"]
+    assert by_account["total_groups"] == 13
+    assert by_account["groups"][0] == {
+        "key": "44380002",
+        "entry_count": 701,
+        "amount_sum": 157748785.0,
+    }
+    by_tax_code = result.output["aggregations"]["tax_code"]
+    assert by_tax_code["total_groups"] == 2
+    assert by_tax_code["groups"][0] == {
+        "key": "Sans valeur",
+        "entry_count": 1751,
+        "amount_sum": 298581480.0,
+    }
+    serialized_output = repr(result.output)
+    assert "Achat" not in serialized_output
+    assert "601000" not in serialized_output
+
+
+def test_executor_queries_ledger_entries_with_pagination_and_allowed_columns() -> None:
+    docs_root = _docs_root()
+    workbook_path = docs_root / "GL_anonymise_2500.xlsx"
+    executor = _create_executor(docs_root)
+
+    result = executor.execute(
+        ToolCall(
+            name="query_ledger_entries",
+            arguments={
+                "file_path": str(workbook_path),
+                "sheet_name": "Sheet1",
+                "filters": {"account": "44380002"},
+                "page": 1,
+                "page_size": 3,
+            },
+        ),
+    )
+
+    assert result.ok is True
+    assert result.output["sheet_name"] == "Sheet1"
+    assert result.output["total_matches"] == 701
+    assert result.output["page"] == 1
+    assert result.output["page_size"] == 3
+    assert len(result.output["entries"]) == 3
+    first_entry = result.output["entries"][0]
+    assert first_entry["account"] == "44380002"
+    assert "amount" in first_entry
+    assert "tax_code" in first_entry
+    assert "text" not in first_entry
+    serialized_output = repr(result.output)
+    assert "Achat" not in serialized_output
+    assert "601000" not in serialized_output
+
+
+def test_executor_calculates_ledger_metrics_without_cell_values() -> None:
+    docs_root = _docs_root()
+    workbook_path = docs_root / "GL_anonymise_2500.xlsx"
+    executor = _create_executor(docs_root)
+
+    result = executor.execute(
+        ToolCall(
+            name="calculate_ledger_metrics",
+            arguments={
+                "file_path": str(workbook_path),
+                "sheet_name": "Sheet1",
+                "filters": {"account": "44380002"},
+                "metrics": ["sum", "count", "average", "min", "max"],
+                "top_by": "account",
+                "top_limit": 3,
+            },
+        ),
+    )
+
+    assert result.ok is True
+    assert result.output["sheet_name"] == "Sheet1"
+    assert result.output["total_matches"] == 701
+    assert result.output["amount_field"] == "Montant en devise interne"
+    assert result.output["metrics"] == {
+        "sum": 157748785.0,
+        "count": 701,
+        "average": 225033.93,
+        "min": 25000.0,
+        "max": 565000.0,
+    }
+    assert result.output["top"]["canonical_field"] == "account"
+    assert result.output["top"]["groups"][0] == {
+        "key": "44380002",
+        "entry_count": 701,
+        "amount_sum": 157748785.0,
+    }
+    serialized_output = repr(result.output)
+    assert "Achat" not in serialized_output
+    assert "601000" not in serialized_output
+
+
+def test_executor_detects_data_quality_issues_without_cell_values() -> None:
+    docs_root = _docs_root()
+    workbook_path = docs_root / "GL_anonymise_2500.xlsx"
+    executor = _create_executor(docs_root)
+
+    result = executor.execute(
+        ToolCall(
+            name="detect_data_quality_issues",
+            arguments={
+                "file_path": str(workbook_path),
+                "sheet_name": "Sheet1",
+            },
+        ),
+    )
+
+    assert result.ok is True
+    assert result.output["sheet_name"] == "Sheet1"
+    assert result.output["row_count"] == 2500
+    issue_types = {issue["issue_type"] for issue in result.output["issues"]}
+    assert "empty_column" in issue_types
+    assert "missing_counterparty" in issue_types
+    missing_counterparty = next(
+        issue
+        for issue in result.output["issues"]
+        if issue["issue_type"] == "missing_counterparty"
+    )
+    assert missing_counterparty["affected_count"] == 661
+    assert missing_counterparty["severity"] == "warning"
+    serialized_output = repr(result.output)
+    assert "Achat" not in serialized_output
+    assert "601000" not in serialized_output
+
+
+def test_executor_detects_tax_candidates_from_reference_rules() -> None:
+    docs_root = _docs_root()
+    workbook_path = docs_root / "GL_anonymise_2500.xlsx"
+    executor = _create_executor(docs_root)
+
+    result = executor.execute(
+        ToolCall(
+            name="detect_tax_candidates",
+            arguments={
+                "file_path": str(workbook_path),
+                "sheet_name": "Sheet1",
+                "limit": 5,
+            },
+        ),
+    )
+
+    assert result.ok is True
+    assert result.output["sheet_name"] == "Sheet1"
+    assert result.output["row_count"] == 2500
+    assert result.output["decision_status"] == "review_required"
+    categories = {
+        candidate["category"]: candidate
+        for candidate in result.output["candidates"]
+    }
+    assert categories["resident_services"]["entry_count"] == 227
+    assert categories["resident_services"]["amount_sum"] == 61173000.0
+    assert categories["real_estate_charges"]["entry_count"] == 129
+    assert categories["non_resident_services"]["entry_count"] == 87
+    serialized_output = repr(result.output)
+    assert "HONORAIRES" not in serialized_output
+    assert "LOYER" not in serialized_output
+
+
 def _create_executor(allowed_root: Path) -> ExcelToolExecutor:
     return ExcelToolExecutor(
         tools=ExcelAgentTools(allowed_root=allowed_root),
         registry=create_excel_tool_registry(),
     )
+
+
+def _docs_root() -> Path:
+    docker_docs_root = Path("/workspace/docs")
+    if docker_docs_root.is_dir():
+        return docker_docs_root
+    return Path("../docs")

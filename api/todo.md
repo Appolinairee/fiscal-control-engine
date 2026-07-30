@@ -76,6 +76,20 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Verifier que le rapport Grand Livre n'expose pas de valeurs de cellules.
 - [x] Brancher le rapport Grand Livre dans un tool agent interne sans endpoint dedie.
 
+## Tools Analytiques Grand Livre
+
+- [x] Ajouter `classify_ledger_schema`: comprendre le sens des colonnes d'un Excel utilisateur sans dependre de leur nom exact, puis les mapper vers un schema canonique (`account`, `amount`, `currency`, `text`, `vendor`, `customer`, `tax_code`, `period`, `fiscal_year`, `document_type`) avec tests sur `docs/GL_anonymise_2500.xlsx`.
+- [x] Ajouter les heuristiques de mapping colonnes: synonymes, types de valeurs, formats, exemples anonymises, score de confiance et statut `a_confirmer`.
+- [x] Refuser les mappings ambigus au lieu de laisser le LLM deviner le sens d'une colonne.
+- [x] Adapter `analyze_ledger` pour utiliser les roles detectes par `classify_ledger_schema` (`account`, `amount`, `text`, etc.) et analyser le Grand Livre meme si les noms de colonnes changent.
+- [x] Ajouter `aggregate_ledger`: calculer les agrégats par compte, periode, type de piece, code TVA, fournisseur/client, avec tests sur totaux et comptages attendus.
+- [x] Ajouter `query_ledger_entries`: filtrer les ecritures par compte, periode, montant, code TVA ou tiers, avec pagination stricte et colonnes autorisees uniquement.
+- [x] Ajouter `calculate_ledger_metrics`: calculs explicites demandes par l'utilisateur (`somme`, `nombre`, `moyenne`, `min`, `max`, `top comptes`, repartitions), sans envoyer les lignes completes au LLM.
+- [x] Ajouter `detect_data_quality_issues`: detecter colonnes vides, valeurs manquantes critiques, montants incoherents, devises multiples, tiers absents, dates/periodes suspectes.
+- [x] Ajouter `detect_tax_candidates`: identifier les candidats TVA/RAS a partir des comptes, libelles, tiers, codes TVA et montants, sans decision fiscale finale.
+- [x] Ajouter un routeur deterministe de tools: choisir le ou les tools selon l'intention utilisateur avant appel LLM, puis tester chaque intention separement.
+- [x] Ajouter des tests de consistance tool par tool: fixture Excel anonymisee, sortie attendue stable, absence de donnees sensibles, limites de lignes respectees.
+
 ## Orchestrateur Agent
 
 - [x] Definir le contrat interne d'une execution agent: message utilisateur, fichier cible, contexte, tools autorises.
@@ -90,6 +104,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Collecter une trace d'execution safe dans `AgentRunResult`: etapes pedagogiques, outils utilises, resume des observations LLM, sans chain-of-thought ni donnees sensibles.
 - [x] Ajouter les tests unitaires de trace agent: ordre des etapes, erreurs tool, fallback modele, timeout.
 - [x] Ajouter une synthese visible des pre-traitements: fichier verifie, controles lances, outil choisi, statut de chaque etape, jamais les pensees internes du modele.
+- [x] Ajouter les libelles et resumes utilisateur des tools analytiques dans les evenements de streaming.
 
 ## LLM / Modeles Externes
 
@@ -237,7 +252,11 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les tests unitaires de refus d'un tool call modele avec arguments invalides.
 - [x] Ajouter les tests unitaires du validateur de schema Grand Livre minifie.
 - [x] Ajouter les tests unitaires du rapport interne Grand Livre minifie.
+- [x] Ajouter les tests unitaires du classifieur de schema Grand Livre canonique.
 - [x] Ajouter les tests unitaires du tool interne `analyze_ledger`.
+- [x] Ajouter les tests unitaires du tool interne `classify_ledger_schema`.
+- [x] Ajouter les tests unitaires des tools internes `detect_data_quality_issues` et `detect_tax_candidates`.
+- [x] Ajouter les tests unitaires du routeur deterministe de tools agent.
 - [x] Ajouter les tests unitaires du router `agent`.
 - [x] Ajouter les tests unitaires des erreurs HTTP sanitisees du router `agent`.
 - [x] Ajouter les tests unitaires des tools agent autorises par defaut.
@@ -257,7 +276,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Executer les tests metier/import disponibles localement: `PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q` avec 33 tests passes.
 - [x] Executer les tests chunker disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests/test_chunker.py -q` avec 5 tests passes.
 - [x] Executer les tests RAG source disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests -q` avec 43 tests passes.
-- [x] Executer tous les tests API via Docker: `npm run api:test` avec 191 tests passes.
+- [x] Executer tous les tests API via Docker: `npm run api:test` avec 216 tests passes.
 - [x] Executer le lint API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m ruff check app tests scripts`.
 - [x] Executer le typecheck API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m mypy app tests scripts`.
 - [x] Executer lint, typecheck et compilation API via Docker apres ajout Gemini/Groq.

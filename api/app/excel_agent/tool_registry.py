@@ -95,6 +95,37 @@ def create_excel_tool_registry() -> AgentToolRegistry:
                 ),
             ),
             AgentToolDefinition(
+                name="classify_ledger_schema",
+                description=(
+                    "Detecte le sens des colonnes d'une feuille Grand Livre "
+                    "et les mappe vers un schema canonique sans exposer "
+                    "les valeurs des cellules."
+                ),
+                input_schema={
+                    "type": "object",
+                    "required": ["file_path", "sheet_name"],
+                    "properties": {
+                        "file_path": {"type": "string"},
+                        "sheet_name": {"type": "string"},
+                    },
+                },
+                output_schema={
+                    "type": "object",
+                    "properties": {
+                        "sheet_name": {"type": "string"},
+                        "row_count": {"type": "integer"},
+                        "column_count": {"type": "integer"},
+                        "schema": {"type": "object"},
+                    },
+                },
+                safeguards=(
+                    "allowed_file_only",
+                    "metadata_only",
+                    "ledger_schema_mapping",
+                    "never_return_cell_values",
+                ),
+            ),
+            AgentToolDefinition(
                 name="analyze_ledger",
                 description=(
                     "Analyse le schema et le profil d'une feuille Grand Livre "
@@ -122,6 +153,177 @@ def create_excel_tool_registry() -> AgentToolRegistry:
                     "allowed_file_only",
                     "metadata_only",
                     "ledger_schema_reporting",
+                    "never_return_cell_values",
+                ),
+            ),
+            AgentToolDefinition(
+                name="aggregate_ledger",
+                description=(
+                    "Calcule des totaux agreges du Grand Livre par compte, "
+                    "periode, type de piece, code TVA, fournisseur ou client."
+                ),
+                input_schema={
+                    "type": "object",
+                    "required": ["file_path", "sheet_name"],
+                    "properties": {
+                        "file_path": {"type": "string"},
+                        "sheet_name": {"type": "string"},
+                        "group_by": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "limit": {"type": "integer"},
+                    },
+                },
+                output_schema={
+                    "type": "object",
+                    "properties": {
+                        "sheet_name": {"type": "string"},
+                        "row_count": {"type": "integer"},
+                        "amount_field": {"type": "string"},
+                        "aggregations": {"type": "object"},
+                    },
+                },
+                safeguards=(
+                    "allowed_file_only",
+                    "metadata_only",
+                    "ledger_aggregation",
+                    "never_return_cell_values",
+                ),
+            ),
+            AgentToolDefinition(
+                name="query_ledger_entries",
+                description=(
+                    "Filtre les ecritures du Grand Livre avec pagination stricte "
+                    "et colonnes de sortie autorisees uniquement."
+                ),
+                input_schema={
+                    "type": "object",
+                    "required": ["file_path", "sheet_name"],
+                    "properties": {
+                        "file_path": {"type": "string"},
+                        "sheet_name": {"type": "string"},
+                        "filters": {"type": "object"},
+                        "page": {"type": "integer"},
+                        "page_size": {"type": "integer"},
+                    },
+                },
+                output_schema={
+                    "type": "object",
+                    "properties": {
+                        "sheet_name": {"type": "string"},
+                        "total_matches": {"type": "integer"},
+                        "page": {"type": "integer"},
+                        "page_size": {"type": "integer"},
+                        "entries": {"type": "array"},
+                    },
+                },
+                safeguards=(
+                    "allowed_file_only",
+                    "paginated_output",
+                    "allowed_columns_only",
+                    "never_return_cell_values",
+                ),
+            ),
+            AgentToolDefinition(
+                name="calculate_ledger_metrics",
+                description=(
+                    "Calcule des metriques explicites sur le Grand Livre: somme, "
+                    "nombre, moyenne, min, max et top groupes."
+                ),
+                input_schema={
+                    "type": "object",
+                    "required": ["file_path", "sheet_name"],
+                    "properties": {
+                        "file_path": {"type": "string"},
+                        "sheet_name": {"type": "string"},
+                        "filters": {"type": "object"},
+                        "metrics": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "top_by": {"type": "string"},
+                        "top_limit": {"type": "integer"},
+                    },
+                },
+                output_schema={
+                    "type": "object",
+                    "properties": {
+                        "sheet_name": {"type": "string"},
+                        "total_matches": {"type": "integer"},
+                        "amount_field": {"type": "string"},
+                        "metrics": {"type": "object"},
+                        "top": {"type": "object"},
+                    },
+                },
+                safeguards=(
+                    "allowed_file_only",
+                    "metadata_only",
+                    "ledger_metrics",
+                    "never_return_cell_values",
+                ),
+            ),
+            AgentToolDefinition(
+                name="detect_data_quality_issues",
+                description=(
+                    "Detecte les anomalies de qualite du Grand Livre: colonnes "
+                    "vides, valeurs critiques manquantes, montants invalides, "
+                    "devises multiples, tiers absents et periodes suspectes."
+                ),
+                input_schema={
+                    "type": "object",
+                    "required": ["file_path", "sheet_name"],
+                    "properties": {
+                        "file_path": {"type": "string"},
+                        "sheet_name": {"type": "string"},
+                    },
+                },
+                output_schema={
+                    "type": "object",
+                    "properties": {
+                        "sheet_name": {"type": "string"},
+                        "row_count": {"type": "integer"},
+                        "issue_count": {"type": "integer"},
+                        "severity_counts": {"type": "object"},
+                        "issues": {"type": "array"},
+                    },
+                },
+                safeguards=(
+                    "allowed_file_only",
+                    "metadata_only",
+                    "ledger_data_quality",
+                    "never_return_cell_values",
+                ),
+            ),
+            AgentToolDefinition(
+                name="detect_tax_candidates",
+                description=(
+                    "Detecte des candidats fiscaux a revoir par le metier a "
+                    "partir du referentiel versionne, sans decision fiscale finale."
+                ),
+                input_schema={
+                    "type": "object",
+                    "required": ["file_path", "sheet_name"],
+                    "properties": {
+                        "file_path": {"type": "string"},
+                        "sheet_name": {"type": "string"},
+                        "limit": {"type": "integer"},
+                    },
+                },
+                output_schema={
+                    "type": "object",
+                    "properties": {
+                        "sheet_name": {"type": "string"},
+                        "row_count": {"type": "integer"},
+                        "decision_status": {"type": "string"},
+                        "candidates": {"type": "array"},
+                    },
+                },
+                safeguards=(
+                    "allowed_file_only",
+                    "metadata_only",
+                    "review_only",
+                    "no_tax_decision",
                     "never_return_cell_values",
                 ),
             ),

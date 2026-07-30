@@ -11,6 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, UploadFile, status
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from app.account_mapping.rule_loader import load_classification_rules
 from app.agent.orchestrator import (
     AgentOrchestrator,
     AgentRunEvent,
@@ -42,7 +43,18 @@ from app.schemas.agent import (
     AgentToolResultResponse,
 )
 
-DEFAULT_AGENT_TOOLS = ("list_sheets", "get_columns", "profile_sheet", "analyze_ledger")
+DEFAULT_AGENT_TOOLS = (
+    "list_sheets",
+    "get_columns",
+    "profile_sheet",
+    "classify_ledger_schema",
+    "analyze_ledger",
+    "aggregate_ledger",
+    "query_ledger_entries",
+    "calculate_ledger_metrics",
+    "detect_data_quality_issues",
+    "detect_tax_candidates",
+)
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
@@ -92,6 +104,9 @@ async def get_agent_orchestrator(settings: SettingsDependency) -> AgentOrchestra
                     allowed_roots=(Path(settings.agent_file_storage_root_path),),
                 ),
                 registry=create_excel_tool_registry(),
+                tax_candidate_rules=load_classification_rules(
+                    Path(settings.ras_classification_rules_path),
+                ),
             ),
             max_answer_characters=settings.agent_max_answer_characters,
         )

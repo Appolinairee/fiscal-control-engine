@@ -1,3 +1,5 @@
+import AISidebar from "@/components/dashboard/sidebar/AISidebar";
+
 type DashboardSideColumnProps = {
   side: "left" | "right";
 };
@@ -13,6 +15,8 @@ export default function DashboardSideColumn({
           ? "border-b border-black/[0.06] lg:border-b-0 lg:border-r"
           : "border-t border-black/[0.06] lg:border-l lg:border-t-0",
       ].join(" ")}
-    />
+    >
+      {side === "left" && <AISidebar />}
+    </aside>
   );
 }

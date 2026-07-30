@@ -220,6 +220,86 @@ def test_orchestrator_runs_default_excel_analysis_when_model_skips_tool_call(
     assert model.calls == 1
 
 
+def test_orchestrator_routes_data_quality_before_model_call(tmp_path: Path) -> None:
+    workbook_path = write_minified_grand_livre(tmp_path)
+    model = FakeModelProvider(
+        responses=(
+            ModelResponse(
+                text="Des points de qualité sont à vérifier.",
+                provider_name="fake",
+                model_name="fake-model",
+                finish_reason="stop",
+                tool_calls=(),
+            ),
+        ),
+    )
+    orchestrator = _create_orchestrator(tmp_path, model)
+
+    result = orchestrator.run(
+        AgentRunRequest(
+            user_message="Vérifie la qualité des données du Grand Livre.",
+            file_path=workbook_path,
+            sheet_name="Grand Livre",
+            allowed_tools=(
+                "analyze_ledger",
+                "detect_data_quality_issues",
+                "detect_tax_candidates",
+            ),
+        ),
+    )
+
+    assert [tool_result.tool_name for tool_result in result.tool_results] == [
+        "detect_data_quality_issues",
+    ]
+    assert model.calls == 1
+    assert model.requests[0].allowed_tools == ()
+    assert "detect_data_quality_issues" in model.requests[0].messages[-1].content
+    assert [event.event_type for event in result.execution_events] == [
+        "run_started",
+        "file_checked",
+        "tool_requested",
+        "tool_started",
+        "tool_finished",
+        "model_requested",
+        "answer_ready",
+    ]
+
+
+def test_orchestrator_routes_tax_candidates_before_model_call(tmp_path: Path) -> None:
+    workbook_path = write_minified_grand_livre(tmp_path)
+    model = FakeModelProvider(
+        responses=(
+            ModelResponse(
+                text="Les candidats fiscaux doivent être revus par le métier.",
+                provider_name="fake",
+                model_name="fake-model",
+                finish_reason="stop",
+                tool_calls=(),
+            ),
+        ),
+    )
+    orchestrator = _create_orchestrator(tmp_path, model)
+
+    result = orchestrator.run(
+        AgentRunRequest(
+            user_message="Détecte les candidats RAS à confirmer.",
+            file_path=workbook_path,
+            sheet_name="Grand Livre",
+            allowed_tools=(
+                "detect_data_quality_issues",
+                "detect_tax_candidates",
+            ),
+        ),
+    )
+
+    assert [tool_result.tool_name for tool_result in result.tool_results] == [
+        "detect_tax_candidates",
+    ]
+    assert result.tool_results[0].output["decision_status"] == "review_required"
+    assert model.calls == 1
+    assert model.requests[0].allowed_tools == ()
+
+
 def test_orchestrator_refuses_disallowed_tool_call(tmp_path: Path) -> None:
     workbook_path = write_minified_grand_livre(tmp_path)
     model = FakeModelProvider(
