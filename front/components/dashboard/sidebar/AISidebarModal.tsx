@@ -11,11 +11,19 @@ export default function AISidebarModal({
   mode,
   conversations,
   files,
+  isConversationLoading,
+  hasConversationError,
+  isFileLoading,
+  hasFileError,
   onClose,
 }: {
   mode: AISidebarModalMode;
   conversations: SidebarConversation[];
   files: SidebarFile[];
+  isConversationLoading: boolean;
+  hasConversationError: boolean;
+  isFileLoading: boolean;
+  hasFileError: boolean;
   onClose: () => void;
 }) {
   const isSearchMode = mode === "search";
@@ -60,20 +68,11 @@ export default function AISidebarModal({
               <p className="px-2 text-[12px] font-medium text-[#7c8c96]">
                 Discussions récentes
               </p>
-              <div className="mt-2 space-y-1">
-                {conversations.map((conversation) => (
-                  <button
-                    key={conversation.id}
-                    type="button"
-                    className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-[14px] px-3 py-2.5 text-left text-[14px] font-medium text-[#203743] transition hover:bg-[#f5f8fa]"
-                  >
-                    <span className="min-w-0 truncate">{conversation.title}</span>
-                    <span className="shrink-0 text-[12px] text-[#9aa8b0]">
-                      {conversation.updatedAt}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <ModalConversationList
+                conversations={conversations}
+                isLoading={isConversationLoading}
+                hasError={hasConversationError}
+              />
             </div>
           )}
 
@@ -82,13 +81,85 @@ export default function AISidebarModal({
               {isSearchMode ? "Fichiers" : "Fichiers récents"}
             </p>
             <div className="mt-2 space-y-1">
-              {files.map((file) => (
-                <AISidebarFileItem key={file.id} file={file} />
-              ))}
+              {isFileLoading
+                ? Array.from({ length: 3 }).map((_, index) => (
+                    <ModalSkeletonRow key={index} />
+                  ))
+                : files.map((file) => (
+                    <AISidebarFileItem key={file.id} file={file} />
+                  ))}
+              {!isFileLoading && hasFileError && (
+                <p className="px-3 py-2 text-[13px] font-medium text-red-600">
+                  Fichiers indisponibles.
+                </p>
+              )}
+              {!isFileLoading && !hasFileError && files.length === 0 && (
+                <p className="px-3 py-2 text-[13px] font-medium text-[#8a98a2]">
+                  Aucun fichier enregistré.
+                </p>
+              )}
             </div>
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function ModalConversationList({
+  conversations,
+  isLoading,
+  hasError,
+}: {
+  conversations: SidebarConversation[];
+  isLoading: boolean;
+  hasError: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="mt-2 space-y-1">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <ModalSkeletonRow key={index} />
+        ))}
+      </div>
+    );
+  }
+  if (hasError) {
+    return (
+      <p className="mt-2 px-3 py-2 text-[13px] text-red-600">
+        Historique indisponible.
+      </p>
+    );
+  }
+  if (conversations.length === 0) {
+    return (
+      <p className="mt-2 px-3 py-2 text-[13px] font-medium text-[#8a98a2]">
+        Aucune discussion enregistrée.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-2 space-y-1">
+      {conversations.map((conversation) => (
+        <button
+          key={conversation.id}
+          type="button"
+          className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-[14px] px-3 py-2.5 text-left text-[14px] font-medium text-[#203743] transition hover:bg-[#f5f8fa]"
+        >
+          <span className="min-w-0 truncate">{conversation.title}</span>
+          <span className="shrink-0 text-[12px] text-[#9aa8b0]">
+            {conversation.updatedAt}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ModalSkeletonRow() {
+  return (
+    <div className="rounded-[14px] px-3 py-2.5">
+      <div className="h-3.5 w-3/4 animate-pulse rounded-full bg-[#edf4f7]" />
     </div>
   );
 }

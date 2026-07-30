@@ -10,6 +10,7 @@ from app.agent_file.persistent_file_store import PersistentAgentFileStore
 from app.agent_persistence.models import (
     AgentMessageModel,
     AgentRunEventModel,
+    AgentSessionModel,
     AgentToolResultModel,
 )
 from app.agent_persistence.repository import SqlAlchemyAgentRepository
@@ -111,6 +112,79 @@ def test_repository_persists_run_messages_events_and_tool_results(
     assert [message.role for message in messages] == ["user", "assistant"]
     assert events[0].tool_name == "query_ledger_entries"
     assert tool_results[0].output["total_matches"] == 203
+
+
+def test_repository_lists_recent_conversations_and_files(tmp_path: Path) -> None:
+    source_path = write_minified_grand_livre(tmp_path / "sources")
+    session_factory = _create_session_factory(tmp_path)
+    repository = SqlAlchemyAgentRepository(
+        session_factory=session_factory,
+        now=lambda: datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    store = PersistentAgentFileStore(
+        storage_root=tmp_path / "sessions",
+        repository=repository,
+        now=lambda: datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    stored_file = store.store(source_path, original_filename="grand_livre.xlsx")
+    repository.save_run(
+        user_message="Montre les écritures du compte 44585100.",
+        result=AgentRunResult(
+            answer="20 écritures retournées.",
+            provider_name="groq",
+            model_name="llama",
+            execution_events=(),
+            tool_results=(),
+        ),
+        session_id=stored_file.session_id,
+        file_id=stored_file.file_id,
+    )
+
+    conversations = repository.list_recent_conversations()
+    files = repository.list_recent_files()
+
+    assert len(conversations) == 1
+    assert conversations[0].title == "Montre les écritures du compte 44585100."
+    assert conversations[0].status == "Réponse agent"
+    assert conversations[0].session_id == stored_file.session_id
+    assert len(files) == 1
+    assert files[0].original_filename == "grand_livre.xlsx"
+    assert files[0].sheet_names == ("Grand Livre",)
+
+
+def test_repository_tracks_active_file_inside_session(tmp_path: Path) -> None:
+    source_path = write_minified_grand_livre(tmp_path / "sources")
+    session_factory = _create_session_factory(tmp_path)
+    repository = SqlAlchemyAgentRepository(
+        session_factory=session_factory,
+        now=lambda: datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    store = PersistentAgentFileStore(
+        storage_root=tmp_path / "sessions",
+        repository=repository,
+        now=lambda: datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    first_file = store.store(source_path, original_filename="first.xlsx")
+    second_file = store.store(
+        source_path,
+        original_filename="second.xlsx",
+        session_id=first_file.session_id,
+    )
+
+    active_file = repository.get_active_file(first_file.session_id)
+    session_files = repository.list_session_files(first_file.session_id)
+
+    assert second_file.session_id == first_file.session_id
+    assert active_file is not None
+    assert active_file.file_id == second_file.file_id
+    assert [file.original_filename for file in session_files] == [
+        "second.xlsx",
+        "first.xlsx",
+    ]
+    with session_factory() as session:
+        session_model = session.get(AgentSessionModel, first_file.session_id)
+    assert session_model is not None
+    assert session_model.active_file_id == second_file.file_id
 
 
 def _create_session_factory(tmp_path: Path) -> sessionmaker[Session]:

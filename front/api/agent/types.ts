@@ -8,6 +8,71 @@ export type AgentFileUploadResponse = {
   sheet_names: string[];
 };
 
+export type AgentSidebarConversation = {
+  run_id: string;
+  session_id: string | null;
+  file_id: string | null;
+  title: string;
+  status: string;
+  created_at: string;
+};
+
+export type AgentSidebarConversationListResponse = {
+  items: AgentSidebarConversation[];
+};
+
+export type AgentSidebarFile = {
+  session_id: string;
+  file_id: string;
+  original_filename: string;
+  file_size_bytes: number | null;
+  sheet_names: string[];
+  created_at: string;
+  expires_at: string;
+  status: string;
+};
+
+export type AgentSidebarFileListResponse = {
+  items: AgentSidebarFile[];
+};
+
+export type AgentDashboardChart = {
+  chart_id: string;
+  title: string;
+  kind: string;
+  metric: string;
+  labels: string[];
+  values: Array<number>;
+  series: Array<{
+    name: string;
+    values: Array<number>;
+  }>;
+  metadata: Record<string, unknown>;
+};
+
+export type AgentFileDashboard = {
+  file_id: string;
+  sheet_name: string;
+  summary: Record<string, unknown>;
+  schema_overview: Record<string, unknown>;
+  metrics: Record<string, unknown>;
+  charts: AgentDashboardChart[];
+  quality: Record<string, unknown>;
+};
+
+export type AgentSessionContextEvent = AgentRunEvent & {
+  created_at: string;
+};
+
+export type AgentSessionContextResponse = {
+  state: "empty" | "ready" | string;
+  session_id: string;
+  active_file: AgentSidebarFile | null;
+  files: AgentSidebarFile[];
+  dashboard: AgentFileDashboard | null;
+  last_agent_events: AgentSessionContextEvent[];
+};
+
 export type AgentAttachedFile = {
   sessionId: string;
   fileId: string;

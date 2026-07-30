@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { agentSidebarQueryKeys } from "@/api/agent/sidebar";
 import { uploadAgentFile } from "@/api/agent/uploadAgentFile";
 import {
   runAgentChat,
@@ -46,6 +47,7 @@ export const useAgentFileUpload = () => {
   const activePreviewUrlRef = useRef<string | null>(null);
   const previewUrlsRef = useRef<Set<string>>(new Set());
   const { setAlert } = useAlertStore();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const previewUrls = previewUrlsRef.current;
@@ -100,6 +102,9 @@ export const useAgentFileUpload = () => {
         expiresAt: response.expires_at,
         sheetNames: response.sheet_names,
         selectedSheetName,
+      });
+      queryClient.invalidateQueries({
+        queryKey: agentSidebarQueryKeys.files,
       });
       preAnalysisMutation.mutate({
         sessionId: response.session_id,
@@ -224,6 +229,7 @@ export const useAgentFileUpload = () => {
         }
       );
       completeAssistantMessage(assistantMessageId, response);
+      invalidateSidebarData();
     } catch {
       if (!hasStreamProgress) {
         try {
@@ -234,6 +240,7 @@ export const useAgentFileUpload = () => {
             sheetName,
           });
           completeAssistantMessage(assistantMessageId, fallbackResponse);
+          invalidateSidebarData();
           return;
         } catch {
           // The message is marked as failed below.
@@ -293,6 +300,15 @@ export const useAgentFileUpload = () => {
           : message
       )
     );
+  }
+
+  function invalidateSidebarData() {
+    queryClient.invalidateQueries({
+      queryKey: agentSidebarQueryKeys.conversations,
+    });
+    queryClient.invalidateQueries({
+      queryKey: agentSidebarQueryKeys.files,
+    });
   }
 
   function failAssistantMessage(assistantMessageId: string) {

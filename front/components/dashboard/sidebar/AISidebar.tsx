@@ -1,18 +1,38 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
+import {
+  agentSidebarQueryKeys,
+  listAgentConversations,
+  listAgentFiles,
+} from "@/api/agent/sidebar";
+import type { AgentSidebarConversation, AgentSidebarFile } from "@/api/agent/types";
 import { ChevronRightIcon } from "@/public/assets/icons/AgentInputIcons";
 import { SearchZoomIcon } from "@/public/assets/icons/icons";
 import { AddSquareIcon, CategoryIcon } from "@/public/assets/icons/SideBarIcons";
 
 import AISidebarConversationItem from "./AISidebarConversationItem";
 import AISidebarModal, { type AISidebarModalMode } from "./AISidebarModal";
-import { sidebarConversations, sidebarFiles } from "./aiSidebarData";
+import type { SidebarConversation, SidebarFile } from "./aiSidebarData";
 
 export default function AISidebar() {
   const [isRecentExpanded, setIsRecentExpanded] = useState(false);
   const [modalMode, setModalMode] = useState<AISidebarModalMode | null>(null);
+  const conversationsQuery = useQuery({
+    queryKey: agentSidebarQueryKeys.conversations,
+    queryFn: () => listAgentConversations(20),
+  });
+  const filesQuery = useQuery({
+    queryKey: agentSidebarQueryKeys.files,
+    queryFn: () => listAgentFiles(20),
+  });
+
+  const sidebarConversations = (conversationsQuery.data?.items ?? []).map(
+    toSidebarConversation
+  );
+  const sidebarFiles = (filesQuery.data?.items ?? []).map(toSidebarFile);
 
   const visibleConversations = isRecentExpanded
     ? sidebarConversations
@@ -63,14 +83,31 @@ export default function AISidebar() {
             />
           </button>
           <div className="space-y-1">
-            {visibleConversations.map((conversation) => (
-              <AISidebarConversationItem
-                key={conversation.id}
-                conversation={conversation}
-              />
-            ))}
+            {conversationsQuery.isLoading &&
+              Array.from({ length: 3 }).map((_, index) => (
+                <AISidebarSkeletonRow key={index} />
+              ))}
+            {!conversationsQuery.isLoading &&
+              visibleConversations.map((conversation) => (
+                <AISidebarConversationItem
+                  key={conversation.id}
+                  conversation={conversation}
+                />
+              ))}
+            {!conversationsQuery.isLoading &&
+              !conversationsQuery.isError &&
+              sidebarConversations.length === 0 && (
+                <p className="px-3 py-2 text-[12px] font-medium text-[#8a98a2]">
+                  Aucun échange enregistré.
+                </p>
+              )}
+            {conversationsQuery.isError && (
+              <p className="px-3 py-2 text-[12px] text-red-600">
+                Historique indisponible.
+              </p>
+            )}
           </div>
-          {!isRecentExpanded && hiddenCount > 0 && (
+          {!conversationsQuery.isLoading && !isRecentExpanded && hiddenCount > 0 && (
             <button
               type="button"
               onClick={() => setIsRecentExpanded(true)}
@@ -86,9 +123,73 @@ export default function AISidebar() {
           mode={modalMode}
           conversations={sidebarConversations}
           files={sidebarFiles}
+          isConversationLoading={conversationsQuery.isLoading}
+          hasConversationError={conversationsQuery.isError}
+          isFileLoading={filesQuery.isLoading}
+          hasFileError={filesQuery.isError}
           onClose={() => setModalMode(null)}
         />
       )}
     </>
   );
+}
+
+function AISidebarSkeletonRow() {
+  return (
+    <div className="rounded-[12px] px-3 py-2.5">
+      <div className="h-3.5 w-3/4 animate-pulse rounded-full bg-[#edf4f7]" />
+      <div className="mt-2 h-2.5 w-1/2 animate-pulse rounded-full bg-[#f5f8fa]" />
+    </div>
+  );
+}
+
+function toSidebarConversation(
+  conversation: AgentSidebarConversation,
+  index: number
+): SidebarConversation {
+  return {
+    id: conversation.run_id,
+    title: conversation.title,
+    status: conversation.status,
+    updatedAt: formatRelativeDate(conversation.created_at),
+    isActive: index === 0,
+  };
+}
+
+function toSidebarFile(file: AgentSidebarFile): SidebarFile {
+  const sheetCount = file.sheet_names.length;
+  const fileSize = file.file_size_bytes ? formatCompactFileSize(file.file_size_bytes) : null;
+  return {
+    id: file.file_id,
+    filename: file.original_filename,
+    meta: [
+      fileSize,
+      sheetCount > 0 ? `${sheetCount} feuille${sheetCount > 1 ? "s" : ""}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  };
+}
+
+function formatRelativeDate(value: string): string {
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) return "";
+  const diffSeconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+  if (diffSeconds < 60) return "Maintenant";
+  const diffMinutes = Math.round(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes} min`;
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} h`;
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 7) return `${diffDays} j`;
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "short",
+  }).format(new Date(value));
+}
+
+function formatCompactFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 }

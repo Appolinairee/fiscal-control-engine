@@ -6,10 +6,11 @@
   "scripts": {
     "api:build": "docker compose build api",
     "api:compile": "docker compose run --rm -e PYTHONPATH=. api uv run --extra dev python -m compileall app tests scripts",
+    "api:db:migrate": "docker compose run --rm -e PYTHONPATH=. api uv run --extra dev alembic upgrade head",
     "api:dev": "docker compose up api",
     "api:lint": "docker compose run --rm -e PYTHONPATH=. api uv run --extra dev ruff check app tests scripts",
     "api:smoke:llm": "docker compose run --rm -e PYTHONPATH=. api uv run python -m scripts.smoke_llm_provider",
-    "api:test": "docker compose run --rm -e PYTHONPATH=. api uv run --extra dev pytest -q",
+    "api:test": "docker compose run --rm -e PYTHONPATH=. -e DATABASE_URL= api uv run --extra dev pytest -q",
     "api:typecheck": "docker compose run --rm -e PYTHONPATH=. api uv run --extra dev mypy app tests scripts",
     "compose:down": "docker compose down",
     "compose:up": "docker compose up",

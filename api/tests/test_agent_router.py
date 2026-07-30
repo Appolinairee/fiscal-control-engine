@@ -31,6 +31,7 @@ from app.routers.agent import (
     get_agent_file_resolver,
     get_agent_file_upload_service,
     get_agent_orchestrator,
+    get_agent_repository,
     get_api_settings,
 )
 
@@ -128,8 +129,12 @@ def test_agent_run_endpoint_accepts_session_file_reference() -> None:
     async def override_file_resolver() -> FakeAgentFileResolver:
         return fake_resolver
 
+    async def override_repository() -> None:
+        return None
+
     app.dependency_overrides[get_agent_orchestrator] = override_orchestrator
     app.dependency_overrides[get_agent_file_resolver] = override_file_resolver
+    app.dependency_overrides[get_agent_repository] = override_repository
 
     response = _post(
         app,
@@ -274,6 +279,244 @@ def test_agent_upload_then_run_uses_stored_session_reference(tmp_path: Path) -> 
     assert fake_orchestrator.last_request.file_path.suffix == ".xlsx"
     assert "analyze_ledger" in fake_orchestrator.last_request.allowed_tools
     assert "query_ledger_entries" in fake_orchestrator.last_request.allowed_tools
+
+
+def test_agent_sidebar_endpoints_return_persisted_runs_and_files(
+    tmp_path: Path,
+) -> None:
+    app = create_app()
+    source_path = write_minified_grand_livre(tmp_path / "sources")
+    fake_orchestrator = FakeAgentOrchestrator(
+        AgentRunResult(
+            answer="20 écritures retournées.",
+            provider_name="groq",
+            model_name="llama",
+            execution_events=(),
+            tool_results=(),
+        ),
+    )
+
+    async def override_settings() -> Settings:
+        return Settings(
+            agent_file_storage_root_path=str(tmp_path / "sessions"),
+            agent_file_max_upload_bytes=200_000,
+            database_url=f"sqlite:///{tmp_path / 'agent.db'}",
+        )
+
+    async def override_orchestrator() -> FakeAgentOrchestrator:
+        return fake_orchestrator
+
+    app.dependency_overrides[get_api_settings] = override_settings
+    app.dependency_overrides[get_agent_orchestrator] = override_orchestrator
+
+    upload_response = _post_files(
+        app,
+        "/api/agent/files",
+        files={
+            "file": (
+                "grand_livre.xlsx",
+                source_path.read_bytes(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+        },
+    )
+    upload_payload = upload_response.json()
+    run_response = _post(
+        app,
+        "/api/agent/runs",
+        json={
+            "message": "Montre les écritures du compte 44585100.",
+            "session_id": upload_payload["session_id"],
+            "file_id": upload_payload["file_id"],
+        },
+    )
+    conversations_response = _get(app, "/api/agent/conversations")
+    files_response = _get(app, "/api/agent/files")
+
+    assert run_response.status_code == 200
+    assert conversations_response.status_code == 200
+    assert files_response.status_code == 200
+    assert conversations_response.json()["items"][0]["title"] == (
+        "Montre les écritures du compte 44585100."
+    )
+    assert conversations_response.json()["items"][0]["status"] == "Réponse agent"
+    assert files_response.json()["items"][0]["original_filename"] == "grand_livre.xlsx"
+    assert files_response.json()["items"][0]["sheet_names"] == ["Grand Livre"]
+
+
+def test_agent_session_context_returns_empty_state_without_active_file() -> None:
+    app = create_app()
+
+    async def override_repository() -> None:
+        return None
+
+    app.dependency_overrides[get_agent_repository] = override_repository
+
+    response = _get(app, "/api/agent/sessions/session-1/context")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "state": "empty",
+        "session_id": "session-1",
+        "active_file": None,
+        "files": [],
+        "dashboard": None,
+        "last_agent_events": [],
+    }
+
+
+def test_agent_session_context_returns_active_file_dashboard(tmp_path: Path) -> None:
+    app = create_app()
+    source_path = write_minified_grand_livre(tmp_path / "sources")
+
+    async def override_settings() -> Settings:
+        return Settings(
+            agent_file_storage_root_path=str(tmp_path / "sessions"),
+            excel_agent_allowed_root_path=str(tmp_path / "docs"),
+            agent_file_max_upload_bytes=200_000,
+            database_url=f"sqlite:///{tmp_path / 'agent.db'}",
+        )
+
+    app.dependency_overrides[get_api_settings] = override_settings
+
+    upload_response = _post_files(
+        app,
+        "/api/agent/files",
+        files={
+            "file": (
+                "grand_livre.xlsx",
+                source_path.read_bytes(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+        },
+    )
+    upload_payload = upload_response.json()
+
+    response = _get(
+        app,
+        f"/api/agent/sessions/{upload_payload['session_id']}/context",
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["state"] == "ready"
+    assert payload["active_file"]["file_id"] == upload_payload["file_id"]
+    assert payload["active_file"]["original_filename"] == "grand_livre.xlsx"
+    assert payload["files"][0]["file_id"] == upload_payload["file_id"]
+    assert payload["dashboard"]["sheet_name"] == "Grand Livre"
+    assert payload["dashboard"]["summary"]["row_count"] == 4
+    assert payload["dashboard"]["summary"]["column_count"] == 5
+    assert payload["dashboard"]["charts"][0]["kind"] == "bar"
+    assert payload["dashboard"]["charts"][0]["metric"] == "amount_sum"
+    assert payload["dashboard"]["quality"]["issue_count"] >= 0
+
+
+def test_agent_session_context_returns_rich_dashboard_charts(tmp_path: Path) -> None:
+    app = create_app()
+    source_path = _reference_excel_path()
+
+    async def override_settings() -> Settings:
+        return Settings(
+            agent_file_storage_root_path=str(tmp_path / "sessions"),
+            excel_agent_allowed_root_path=str(source_path.parent),
+            agent_file_max_upload_bytes=1_000_000,
+            database_url=f"sqlite:///{tmp_path / 'agent.db'}",
+        )
+
+    app.dependency_overrides[get_api_settings] = override_settings
+
+    upload_response = _post_files(
+        app,
+        "/api/agent/files",
+        files={
+            "file": (
+                source_path.name,
+                source_path.read_bytes(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+        },
+    )
+    upload_payload = upload_response.json()
+
+    response = _get(
+        app,
+        f"/api/agent/sessions/{upload_payload['session_id']}/context",
+    )
+
+    assert response.status_code == 200
+    charts = response.json()["dashboard"]["charts"]
+    chart_ids = {chart["chart_id"] for chart in charts}
+    assert {
+        "top_accounts_by_amount",
+        "entries_by_account",
+        "amount_by_period",
+        "entries_by_period",
+        "amount_by_document_type",
+        "amount_by_tax_code",
+        "top_vendors_by_amount",
+        "top_customers_by_amount",
+        "data_quality_by_severity",
+        "tax_candidates_by_amount",
+    }.issubset(chart_ids)
+    period_chart = next(
+        chart for chart in charts if chart["chart_id"] == "amount_by_period"
+    )
+    assert period_chart["kind"] == "line"
+    assert period_chart["labels"] == [str(period) for period in range(1, 13)]
+    assert period_chart["series"][0]["name"] == "Montant"
+    tax_chart = next(
+        chart for chart in charts if chart["chart_id"] == "tax_candidates_by_amount"
+    )
+    assert tax_chart["metadata"]["decision_status"] == "review_required"
+
+
+def test_agent_upload_can_attach_file_to_existing_session(tmp_path: Path) -> None:
+    app = create_app()
+    source_path = write_minified_grand_livre(tmp_path / "sources")
+
+    async def override_settings() -> Settings:
+        return Settings(
+            agent_file_storage_root_path=str(tmp_path / "sessions"),
+            agent_file_max_upload_bytes=200_000,
+            database_url=f"sqlite:///{tmp_path / 'agent.db'}",
+        )
+
+    app.dependency_overrides[get_api_settings] = override_settings
+
+    first_upload = _post_files(
+        app,
+        "/api/agent/files",
+        files={
+            "file": (
+                "first.xlsx",
+                source_path.read_bytes(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+        },
+    )
+    first_payload = first_upload.json()
+    second_upload = _post_files(
+        app,
+        f"/api/agent/files?session_id={first_payload['session_id']}",
+        files={
+            "file": (
+                "second.xlsx",
+                source_path.read_bytes(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+        },
+    )
+    second_payload = second_upload.json()
+
+    context_response = _get(
+        app,
+        f"/api/agent/sessions/{first_payload['session_id']}/context",
+    )
+
+    assert second_payload["session_id"] == first_payload["session_id"]
+    assert second_payload["file_id"] != first_payload["file_id"]
+    active_file = context_response.json()["active_file"]
+    assert active_file["file_id"] == second_payload["file_id"]
 
 
 def test_agent_upload_then_run_executes_ledger_analysis_tool(
@@ -680,6 +923,7 @@ class FakeAgentFileUploadService:
         self,
         source_path: Path,
         original_filename: str,
+        session_id: str | None = None,
     ) -> AgentFileUploadResult:
         self.last_source_path = source_path
         self.last_original_filename = original_filename
@@ -694,6 +938,7 @@ class FailingAgentFileUploadService:
         self,
         source_path: Path,
         original_filename: str,
+        session_id: str | None = None,
     ) -> AgentFileUploadResult:
         raise self._error
 
@@ -739,8 +984,22 @@ def _extract_target_path(request: ModelRequest) -> Path:
     raise AssertionError("target file path is required")
 
 
+def _reference_excel_path() -> Path:
+    for candidate in (
+        Path("/workspace/docs/GL_anonymise_2500.xlsx"),
+        Path("docs/GL_anonymise_2500.xlsx"),
+    ):
+        if candidate.is_file():
+            return candidate.resolve()
+    raise AssertionError("reference anonymized Excel file is required")
+
+
 def _post(app: Any, path: str, json: dict[str, object]) -> httpx.Response:
     return asyncio.run(_async_post(app, path, json))
+
+
+def _get(app: Any, path: str) -> httpx.Response:
+    return asyncio.run(_async_get(app, path))
 
 
 def _post_files(
@@ -762,6 +1021,15 @@ async def _async_post(
         base_url="http://testserver",
     ) as client:
         return await client.post(path, json=json)
+
+
+async def _async_get(app: Any, path: str) -> httpx.Response:
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+    ) as client:
+        return await client.get(path)
 
 
 async def _async_post_files(

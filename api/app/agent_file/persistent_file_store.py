@@ -32,26 +32,30 @@ class PersistentAgentFileStore:
         self._now = now or (lambda: datetime.now(tz=UTC))
         self._upload_validator = upload_validator
 
-    def store(self, source_path: Path, original_filename: str) -> StoredAgentFile:
+    def store(
+        self,
+        source_path: Path,
+        original_filename: str,
+        session_id: str | None = None,
+    ) -> StoredAgentFile:
         resolved_source_path = source_path.resolve()
         suffix = resolved_source_path.suffix.lower()
         if suffix not in SUPPORTED_EXCEL_SUFFIXES:
             raise UnsupportedAgentFileError(f"unsupported agent file: {suffix}")
         validation_report = (
-            self._upload_validator.validate(resolved_source_path)
-            if self._upload_validator is not None
-            else None
-        )
+            self._upload_validator
+            or AgentExcelUploadValidator(max_file_size_bytes=20_000_000)
+        ).validate(resolved_source_path)
 
-        session_id = uuid4().hex
+        target_session_id = session_id or uuid4().hex
         file_id = uuid4().hex
-        session_directory = self._storage_root / session_id
+        session_directory = self._storage_root / target_session_id
         session_directory.mkdir(parents=True, exist_ok=True)
         stored_path = session_directory / f"{file_id}{suffix}"
         copyfile(resolved_source_path, stored_path)
 
         stored_file = StoredAgentFile(
-            session_id=session_id,
+            session_id=target_session_id,
             file_id=file_id,
             original_filename=original_filename,
             path=stored_path.resolve(),
@@ -63,9 +67,7 @@ class PersistentAgentFileStore:
         self._repository.save_file(
             stored_file=stored_file,
             file_size_bytes=resolved_source_path.stat().st_size,
-            sheet_names=(
-                validation_report.sheet_names if validation_report is not None else ()
-            ),
+            sheet_names=validation_report.sheet_names,
         )
         return stored_file
 

@@ -43,8 +43,9 @@ Checklist operationnelle du chantier front. Les cases seront cochees au fur et a
 - [x] Regrouper les fichiers dans un seul bouton ouvrant un modal.
 - [x] Utiliser le meme modal pour la recherche et la liste des fichiers.
 - [x] Centrer le modal recherche/fichiers avec scroll interne si le contenu deborde.
-- [ ] Brancher la sidebar sur un historique de conversations reel.
-- [ ] Brancher le modal fichiers sur les fichiers uploades reels.
+- [x] Brancher la sidebar sur un historique de conversations reel.
+- [x] Brancher le modal fichiers sur les fichiers uploades reels.
+- [x] Valider le branchement front persistant: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`.
 
 ## Integration Agent Excel
 
@@ -66,9 +67,14 @@ Checklist operationnelle du chantier front. Les cases seront cochees au fur et a
 - [x] Afficher un loading intelligent avec etapes d'execution haut niveau.
 - [x] Brancher le chat sur `POST /api/agent/runs/stream` pour afficher les evenements API au fil de l'eau.
 - [x] Garder `POST /api/agent/runs` en fallback si le stream n'est pas disponible.
+- [x] Aligner le proxy front `/api/*` vers l'API locale du projet sur `http://localhost:8001`.
 - [x] Formatter les reponses agent en Markdown simple: paragraphes, titres et listes.
 - [x] Ne pas afficher les métriques deterministes comme une reponse agent.
 - [ ] Afficher les resultats de mapping et anomalies.
+- [x] Ajouter les types front du contexte session et des graphes dashboard riches.
+- [x] Ajouter l'appel front `getAgentSessionContext(sessionId)` pour la troisieme colonne.
+- [ ] Brancher la troisieme colonne sur `GET /api/agent/sessions/{session_id}/context`.
+- [ ] Afficher les graphes dashboard riches: comptes, periodes, TVA, tiers, qualite, candidats fiscaux.
 - [ ] Afficher les resultats `query_ledger_entries` depuis le payload structure, pas depuis le texte LLM.
 - [ ] Afficher un resume court pour les ecritures: total trouve, page affichee, taille page.
 - [ ] Afficher les ecritures dans un tableau base sur `returned_columns` et `entries`.

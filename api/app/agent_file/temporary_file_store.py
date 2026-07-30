@@ -25,7 +25,12 @@ class TemporaryAgentFileStore:
         self._upload_validator = upload_validator
         self._files: dict[tuple[str, str], StoredAgentFile] = {}
 
-    def store(self, source_path: Path, original_filename: str) -> StoredAgentFile:
+    def store(
+        self,
+        source_path: Path,
+        original_filename: str,
+        session_id: str | None = None,
+    ) -> StoredAgentFile:
         resolved_source_path = source_path.resolve()
         suffix = resolved_source_path.suffix.lower()
         if suffix not in SUPPORTED_EXCEL_SUFFIXES:
@@ -33,15 +38,15 @@ class TemporaryAgentFileStore:
         if self._upload_validator is not None:
             self._upload_validator.validate(resolved_source_path)
 
-        session_id = uuid4().hex
+        target_session_id = session_id or uuid4().hex
         file_id = uuid4().hex
-        session_directory = self._storage_root / session_id
+        session_directory = self._storage_root / target_session_id
         session_directory.mkdir(parents=True, exist_ok=True)
         stored_path = session_directory / f"{file_id}{suffix}"
         copyfile(resolved_source_path, stored_path)
 
         stored_file = StoredAgentFile(
-            session_id=session_id,
+            session_id=target_session_id,
             file_id=file_id,
             original_filename=original_filename,
             path=stored_path.resolve(),
@@ -50,7 +55,7 @@ class TemporaryAgentFileStore:
             anonymized_for_rag=False,
             rag_indexable=False,
         )
-        self._files[(session_id, file_id)] = stored_file
+        self._files[(target_session_id, file_id)] = stored_file
         return stored_file
 
     def resolve(self, session_id: str, file_id: str) -> StoredAgentFile | None:

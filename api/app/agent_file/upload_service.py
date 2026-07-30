@@ -11,7 +11,12 @@ from app.agent_file.upload_validator import AgentExcelUploadValidator
 
 
 class AgentFileStore(Protocol):
-    def store(self, source_path: Path, original_filename: str) -> StoredAgentFile:
+    def store(
+        self,
+        source_path: Path,
+        original_filename: str,
+        session_id: str | None = None,
+    ) -> StoredAgentFile:
         pass
 
 
@@ -28,6 +33,7 @@ class AgentFileUploadService:
         self,
         source_path: Path,
         original_filename: str,
+        session_id: str | None = None,
     ) -> AgentFileUploadResult:
         validation_report = (
             self._validator.validate(source_path)
@@ -40,6 +46,7 @@ class AgentFileUploadService:
                 original_filename,
                 source_path.suffix,
             ),
+            session_id=session_id,
         )
         sheet_names = (
             validation_report.sheet_names

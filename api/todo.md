@@ -276,7 +276,7 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Executer les tests metier/import disponibles localement: `PYTHONPATH=. python3 -m pytest app/account_mapping/tests -q` avec 33 tests passes.
 - [x] Executer les tests chunker disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests/test_chunker.py -q` avec 5 tests passes.
 - [x] Executer les tests RAG source disponibles localement: `PYTHONPATH=. python3 -m pytest app/rag_source/tests -q` avec 43 tests passes.
-- [x] Executer tous les tests API via Docker: `npm run api:test` avec 229 tests passes.
+- [x] Executer tous les tests API via Docker: `npm run api:test` avec 236 tests passes.
 - [x] Executer le lint API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m ruff check app tests scripts`.
 - [x] Executer le typecheck API localement: `PYTHONPATH=/tmp/bfh-python-deps:. python3 -m mypy app tests scripts`.
 - [x] Executer lint, typecheck et compilation API via Docker apres ajout Gemini/Groq.
@@ -299,6 +299,15 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 ## Sessions Agent, Fichiers et Requetes Deterministes
 
 - [x] Persister les references `session_id` / `file_id` pour ne pas perdre les uploads apres reload API.
+- [x] Ajouter `active_file_id` sur une session agent pour piloter le panneau de contexte front.
+- [x] Permettre a un upload Excel de rejoindre une session existante via `session_id`.
+- [x] Marquer le dernier upload d'une session comme fichier actif par defaut.
+- [x] Ajouter `GET /api/agent/sessions/{session_id}/context` pour la troisieme colonne front.
+- [x] Retourner un etat vide stable quand aucune session ou aucun fichier actif n'existe.
+- [x] Retourner le fichier actif, les fichiers de session et les derniers evenements agent.
+- [x] Generer un dashboard fichier deterministe sans LLM: resume, schema, metriques, graphique top comptes, qualite donnees.
+- [x] Enrichir le dashboard avec graphes multi-dimensions: comptes, periodes, types de piece, TVA, fournisseurs, clients, qualite et candidats fiscaux.
+- [x] Ajouter un contrat de graphe riche: `chart_id`, `kind`, `metric`, `labels`, `values`, `series`, `metadata`.
 - [x] Retourner des erreurs stables si un fichier est expire, supprime ou introuvable: `file_expired`, `file_missing`.
 - [x] Ajouter un contrat front stable pour les fichiers agent: statut, expiration, nom original safe, taille, type MIME, dates.
 - [x] Renforcer le routeur deterministe de questions: detecter un compte et router vers `query_ledger_entries`.
@@ -313,13 +322,18 @@ Checklist operationnelle du chantier API. Les cases seront cochees au fur et a m
 - [x] Ajouter les tests metier: compte inexistant -> 0 resultat + message clair.
 - [x] Ajouter les tests metier: pagination stricte et limite de lignes.
 - [x] Ajouter les tests metier: fichier expire/supprime -> code `file_expired` ou `file_missing`.
+- [x] Ajouter les tests API pour contexte session vide, contexte avec fichier actif et upload dans session existante.
+- [x] Verifier le flux runtime Docker/Postgres: upload Excel -> liste fichiers -> run agent -> liste conversations -> contexte session.
+- [x] Valider la persistance agent: `npm run api:test`, `npm run api:lint`, `npm run api:typecheck`, `npm run api:compile`.
 
 ## Migration Infrastructure Prioritaire
 
 - [x] Introduire PostgreSQL local pour les metadonnees agent, pas pour remplacer les calculs Excel immediatement.
 - [x] Ajouter les dependances DB et migrations versionnees avec SQLAlchemy + Alembic.
+- [x] Ajouter le script racine `npm run api:db:migrate` pour appliquer les migrations locales.
 - [x] Creer les tables minimales: `agent_sessions`, `agent_files`, `agent_messages`, `agent_runs`, `agent_run_events`, `agent_tool_results`.
 - [x] Persister les fichiers eux-memes sur disque ou storage, et stocker seulement les metadonnees en base.
 - [x] Remplacer l'index memoire des uploads par un repository persistant quand `DATABASE_URL` est configure.
+- [x] Exposer l'API locale du projet sur `http://localhost:8001` pour eviter le backend historique deja present sur `8000`.
 - [x] Conserver les endpoints et contrats existants pendant la migration.
 - [ ] Ajouter plus tard une implementation PostgreSQL de `AccountMappingRepository` si le besoin metier le justifie.

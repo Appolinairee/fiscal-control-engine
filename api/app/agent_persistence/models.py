@@ -23,6 +23,11 @@ class AgentSessionModel(Base):
         nullable=False,
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    active_file_id: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
+    )
 
 
 class AgentFileModel(Base):

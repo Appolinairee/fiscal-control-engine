@@ -1,6 +1,6 @@
 import json
 from collections.abc import Iterator
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 from queue import Queue
@@ -8,10 +8,10 @@ from tempfile import NamedTemporaryFile
 from threading import Thread
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from app.account_mapping.rule_loader import load_classification_rules
+from app.agent.dashboard_service import build_file_dashboard, create_excel_tool_executor
 from app.agent.orchestrator import (
     AgentOrchestrator,
     AgentRunEvent,
@@ -30,21 +30,28 @@ from app.agent_file.persistent_file_store import PersistentAgentFileStore
 from app.agent_file.temporary_file_store import TemporaryAgentFileStore
 from app.agent_file.upload_service import AgentFileUploadService
 from app.agent_file.upload_validator import AgentExcelUploadValidator
-from app.agent_persistence.repository import SqlAlchemyAgentRepository
+from app.agent_persistence.repository import (
+    AgentFileSummary,
+    AgentRunEventSummary,
+    SqlAlchemyAgentRepository,
+)
 from app.config import Settings, get_settings
 from app.database import Base, create_database_engine, create_session_factory
-from app.excel_agent.excel_tools import ExcelAgentTools
-from app.excel_agent.tool_executor import ExcelToolExecutor
-from app.excel_agent.tool_registry import create_excel_tool_registry
 from app.llm.domain import ToolCall
 from app.llm.model_provider_factory import create_model_provider
 from app.schemas.agent import (
+    AgentConversationListResponse,
+    AgentConversationSummaryResponse,
     AgentErrorDetail,
     AgentErrorResponse,
+    AgentFileListResponse,
+    AgentFileSummaryResponse,
     AgentFileUploadResponse,
     AgentRunEventResponse,
     AgentRunHttpRequest,
     AgentRunResponse,
+    AgentSessionContextEventResponse,
+    AgentSessionContextResponse,
     AgentToolResultResponse,
 )
 
@@ -103,16 +110,7 @@ async def get_agent_orchestrator(settings: SettingsDependency) -> AgentOrchestra
         )
         return AgentOrchestrator(
             model_provider=model_provider,
-            tool_executor=ExcelToolExecutor(
-                tools=ExcelAgentTools(
-                    allowed_root=Path(settings.excel_agent_allowed_root_path),
-                    allowed_roots=(Path(settings.agent_file_storage_root_path),),
-                ),
-                registry=create_excel_tool_registry(),
-                tax_candidate_rules=load_classification_rules(
-                    Path(settings.ras_classification_rules_path),
-                ),
-            ),
+            tool_executor=create_excel_tool_executor(settings),
             max_answer_characters=settings.agent_max_answer_characters,
         )
     except ValueError as exc:
@@ -198,6 +196,7 @@ AgentFileUploadServiceDependency = Annotated[
     AgentFileUploadService,
     Depends(get_agent_file_upload_service),
 ]
+AgentListLimit = Annotated[int, Query(ge=1, le=50)]
 
 
 async def _copy_upload_to_temporary_file(
@@ -234,6 +233,7 @@ async def upload_agent_file(
     settings: SettingsDependency,
     upload_service: AgentFileUploadServiceDependency,
     file: Annotated[UploadFile, File()],
+    session_id: str | None = Query(default=None, min_length=1),
 ) -> AgentFileUploadResponse | JSONResponse:
     temporary_path: Path | None = None
     try:
@@ -244,6 +244,7 @@ async def upload_agent_file(
         result = upload_service.register_upload(
             source_path=temporary_path,
             original_filename=file.filename or "",
+            session_id=session_id,
         )
     except AgentFileTooLargeError:
         return _to_error_response(
@@ -280,6 +281,130 @@ async def upload_agent_file(
         validated_for_agent=result.validated_for_agent,
         rag_indexable=result.rag_indexable,
         sheet_names=list(result.sheet_names),
+    )
+
+
+@router.get(
+    "/conversations",
+    response_model=AgentConversationListResponse,
+)
+async def list_agent_conversations(
+    repository: AgentRepositoryDependency,
+    limit: AgentListLimit = 20,
+) -> AgentConversationListResponse:
+    if repository is None:
+        return AgentConversationListResponse(items=[])
+    return AgentConversationListResponse(
+        items=[
+            AgentConversationSummaryResponse(
+                run_id=conversation.run_id,
+                session_id=conversation.session_id,
+                file_id=conversation.file_id,
+                title=conversation.title,
+                status=conversation.status,
+                created_at=conversation.created_at,
+            )
+            for conversation in repository.list_recent_conversations(limit=limit)
+        ],
+    )
+
+
+@router.get(
+    "/files",
+    response_model=AgentFileListResponse,
+)
+async def list_agent_files(
+    repository: AgentRepositoryDependency,
+    limit: AgentListLimit = 20,
+) -> AgentFileListResponse:
+    if repository is None:
+        return AgentFileListResponse(items=[])
+    return AgentFileListResponse(
+        items=[
+            AgentFileSummaryResponse(
+                session_id=file.session_id,
+                file_id=file.file_id,
+                original_filename=file.original_filename,
+                file_size_bytes=file.file_size_bytes,
+                sheet_names=list(file.sheet_names),
+                created_at=file.created_at,
+                expires_at=file.expires_at,
+                status=file.status,
+            )
+            for file in repository.list_recent_files(limit=limit)
+        ],
+    )
+
+
+@router.get(
+    "/sessions/{session_id}/context",
+    response_model=AgentSessionContextResponse,
+)
+async def get_agent_session_context(
+    session_id: str,
+    settings: SettingsDependency,
+    repository: AgentRepositoryDependency,
+) -> AgentSessionContextResponse | JSONResponse:
+    if repository is None:
+        return _empty_session_context(session_id)
+    active_file = repository.get_active_file(session_id)
+    session_files = repository.list_session_files(session_id)
+    last_events = repository.list_recent_session_events(session_id)
+    if active_file is None:
+        return AgentSessionContextResponse(
+            state="empty",
+            session_id=session_id,
+            active_file=None,
+            files=[_to_agent_file_summary_response(file) for file in session_files],
+            dashboard=None,
+            last_agent_events=[
+                _to_session_context_event_response(event) for event in last_events
+            ],
+        )
+    try:
+        stored_file = repository.find_file(
+            session_id=active_file.session_id,
+            file_id=active_file.file_id,
+        )
+        if stored_file is None:
+            return _to_error_response(_file_missing_error())
+        if stored_file.expires_at <= datetime.now(tz=UTC):
+            return _to_error_response(_file_expired_error())
+        if not stored_file.path.is_file():
+            return _to_error_response(_file_missing_error())
+        if not active_file.sheet_names:
+            return _to_error_response(
+                AgentEndpointError(
+                    public_code="agent_file_invalid",
+                    public_message="Le fichier Excel actif n'a aucune feuille lisible.",
+                ),
+            )
+        dashboard = build_file_dashboard(
+            settings=settings,
+            file_id=active_file.file_id,
+            file_path=stored_file.path,
+            sheet_name=active_file.sheet_names[0],
+        )
+    except AgentFileExpiredError:
+        return _to_error_response(_file_expired_error())
+    except AgentFileMissingError:
+        return _to_error_response(_file_missing_error())
+    except ValueError:
+        return _to_error_response(
+            AgentEndpointError(
+                public_code="agent_dashboard_unavailable",
+                public_message="Le tableau de bord du fichier actif est indisponible.",
+            ),
+        )
+    return AgentSessionContextResponse(
+        state="ready",
+        session_id=session_id,
+        active_file=_to_agent_file_summary_response(active_file),
+        files=[_to_agent_file_summary_response(file) for file in session_files],
+        dashboard=dashboard,
+        last_agent_events=[
+            _to_session_context_event_response(event) for event in last_events
+        ],
     )
 
 
@@ -459,6 +584,45 @@ def _to_agent_run_response(result: AgentRunResult) -> AgentRunResponse:
             )
             for tool_result in result.tool_results
         ],
+    )
+
+
+def _empty_session_context(session_id: str) -> AgentSessionContextResponse:
+    return AgentSessionContextResponse(
+        state="empty",
+        session_id=session_id,
+        active_file=None,
+        files=[],
+        dashboard=None,
+        last_agent_events=[],
+    )
+
+
+def _to_agent_file_summary_response(file: AgentFileSummary) -> AgentFileSummaryResponse:
+    return AgentFileSummaryResponse(
+        session_id=file.session_id,
+        file_id=file.file_id,
+        original_filename=file.original_filename,
+        file_size_bytes=file.file_size_bytes,
+        sheet_names=list(file.sheet_names),
+        created_at=file.created_at,
+        expires_at=file.expires_at,
+        status=file.status,
+    )
+
+
+def _to_session_context_event_response(
+    event: AgentRunEventSummary,
+) -> AgentSessionContextEventResponse:
+    return AgentSessionContextEventResponse(
+        event_type=event.event_type,
+        title=event.title,
+        message=event.message,
+        status=event.status,
+        tool_name=event.tool_name,
+        provider_name=event.provider_name,
+        model_name=event.model_name,
+        created_at=event.created_at,
     )
 
 

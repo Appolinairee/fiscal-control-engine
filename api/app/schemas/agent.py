@@ -60,6 +60,75 @@ class AgentFileUploadResponse(BaseModel):
     sheet_names: list[str]
 
 
+class AgentConversationSummaryResponse(BaseModel):
+    run_id: str
+    session_id: str | None
+    file_id: str | None
+    title: str
+    status: str
+    created_at: datetime
+
+
+class AgentConversationListResponse(BaseModel):
+    items: list[AgentConversationSummaryResponse]
+
+
+class AgentFileSummaryResponse(BaseModel):
+    session_id: str
+    file_id: str
+    original_filename: str
+    file_size_bytes: int | None
+    sheet_names: list[str]
+    created_at: datetime
+    expires_at: datetime
+    status: str
+
+
+class AgentFileListResponse(BaseModel):
+    items: list[AgentFileSummaryResponse]
+
+
+class AgentDashboardChartResponse(BaseModel):
+    chart_id: str
+    title: str
+    kind: str
+    metric: str
+    labels: list[str]
+    values: list[float | int]
+    series: list[dict[str, Any]] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentFileDashboardResponse(BaseModel):
+    file_id: str
+    sheet_name: str
+    summary: dict[str, Any]
+    schema_overview: dict[str, Any]
+    metrics: dict[str, Any]
+    charts: list[AgentDashboardChartResponse]
+    quality: dict[str, Any]
+
+
+class AgentSessionContextEventResponse(BaseModel):
+    event_type: str
+    title: str
+    message: str
+    status: str
+    tool_name: str | None = None
+    provider_name: str | None = None
+    model_name: str | None = None
+    created_at: datetime
+
+
+class AgentSessionContextResponse(BaseModel):
+    state: str
+    session_id: str
+    active_file: AgentFileSummaryResponse | None
+    files: list[AgentFileSummaryResponse]
+    dashboard: AgentFileDashboardResponse | None
+    last_agent_events: list[AgentSessionContextEventResponse]
+
+
 class AgentErrorDetail(BaseModel):
     code: str
     message: str

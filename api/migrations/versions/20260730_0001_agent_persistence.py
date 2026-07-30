@@ -24,7 +24,13 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("status", sa.String(length=32), nullable=False),
+        sa.Column("active_file_id", sa.String(length=64), nullable=True),
         sa.PrimaryKeyConstraint("session_id"),
+    )
+    op.create_index(
+        "ix_agent_sessions_active_file_id",
+        "agent_sessions",
+        ["active_file_id"],
     )
     op.create_table(
         "agent_files",
@@ -118,4 +124,5 @@ def downgrade() -> None:
     op.drop_table("agent_runs")
     op.drop_index("ix_agent_files_session_id", table_name="agent_files")
     op.drop_table("agent_files")
+    op.drop_index("ix_agent_sessions_active_file_id", table_name="agent_sessions")
     op.drop_table("agent_sessions")

@@ -50,6 +50,8 @@ npm run api:compile
 npm run secrets:check
 ```
 
+L'API locale est exposee par defaut sur `http://localhost:8001`.
+
 Frontend:
 
 ```bash
@@ -59,6 +61,7 @@ npm run dev
 ```
 
 Ouvrir ensuite `http://localhost:3002`.
+Le proxy Next.js envoie `/api/*` vers `http://localhost:8001/api/*` par defaut.
 
 Controles front:
 
