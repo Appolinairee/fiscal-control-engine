@@ -58,7 +58,7 @@ npm install
 npm run dev
 ```
 
-Ouvrir ensuite `http://localhost:3000`.
+Ouvrir ensuite `http://localhost:3002`.
 
 Controles front:
 

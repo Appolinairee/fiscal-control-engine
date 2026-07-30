@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 
 import type { AgentAttachedFile } from "@/api/agent/types";
 import { PlusIcon } from "@/public/assets/icons/icons";
@@ -24,7 +24,11 @@ import AgentToolbarButton from "./AgentToolbarButton";
 const placeholder =
   "Demandez a l'agent d'analyser un compte, une ecriture ou une retenue a la source...";
 
-export default function AgentPromptCard() {
+export default function AgentPromptCard({
+  scrollContainerRef,
+}: {
+  scrollContainerRef?: RefObject<HTMLElement | null>;
+}) {
   const [prompt, setPrompt] = useState("");
   const {
     attachedFile,
@@ -67,9 +71,12 @@ export default function AgentPromptCard() {
         hasWorkspaceContent ? "justify-between" : "justify-center"
       }`}
     >
-      <AgentConversation messages={messages} />
+      <AgentConversation
+        messages={messages}
+        scrollContainerRef={scrollContainerRef}
+      />
       <div
-        className={`z-10 bg-white pb-2 pt-4 ${
+        className={`z-10 bg-white pb-0 pt-4 ${
           hasWorkspaceContent ? "sticky bottom-0 mt-auto" : ""
         }`}
       >

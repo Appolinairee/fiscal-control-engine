@@ -17,7 +17,7 @@ def test_factory_creates_internal_controlled_provider() -> None:
 
     assert response.provider_name == "internal"
     assert response.model_name == "controlled-response"
-    assert "controles deterministes" in response.text
+    assert "contrôles déterministes" in response.text
     assert audit_events[0].provider_name == "internal"
     assert audit_events[0].model_name == "controlled-response"
     assert audit_events[0].status == "success"

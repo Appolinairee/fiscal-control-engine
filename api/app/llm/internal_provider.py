@@ -8,8 +8,8 @@ class InternalControlledModelProvider:
     def generate(self, request: ModelRequest) -> ModelResponse:
         return ModelResponse(
             text=(
-                "Le modele externe n'est pas configure. "
-                "Les controles deterministes et les tools internes restent disponibles."
+                "Les contrôles déterministes sont disponibles. "
+                "Ajoutez un fichier Excel pour lancer une analyse structurée."
             ),
             provider_name=self.provider_name,
             model_name=self.model_name,

@@ -117,7 +117,107 @@ def test_orchestrator_executes_excel_tool_then_requests_final_answer(
     assert model.requests[0].tool_definitions
     assert model.requests[0].tool_definitions[0].name == "profile_sheet"
     assert model.requests[0].tool_definitions[0].input_schema["type"] == "object"
+    assert model.requests[1].messages[-1].role == "user"
     assert "row_count" in model.requests[1].messages[-1].content
+
+
+def test_orchestrator_returns_deterministic_answer_when_final_model_is_internal(
+    tmp_path: Path,
+) -> None:
+    workbook_path = write_minified_grand_livre(tmp_path)
+    model = FakeModelProvider(
+        responses=(
+            ModelResponse(
+                text="",
+                provider_name="fake",
+                model_name="fake-model",
+                finish_reason="tool_calls",
+                tool_calls=(
+                    ToolCall(
+                        name="profile_sheet",
+                        arguments={
+                            "file_path": str(workbook_path),
+                            "sheet_name": "Grand Livre",
+                        },
+                    ),
+                ),
+            ),
+            ModelResponse(
+                text=(
+                    "Les contrôles déterministes sont disponibles. "
+                    "Ajoutez un fichier Excel pour lancer une analyse structurée."
+                ),
+                provider_name="internal",
+                model_name="controlled-response",
+                finish_reason="controlled_response",
+                tool_calls=(),
+            ),
+        ),
+    )
+    orchestrator = _create_orchestrator(tmp_path, model)
+
+    result = orchestrator.run(
+        AgentRunRequest(
+            user_message="Profile ce Grand Livre.",
+            file_path=workbook_path,
+            sheet_name="Grand Livre",
+            allowed_tools=("profile_sheet",),
+        ),
+    )
+
+    assert result.answer == (
+        "Analyse de la feuille Excel terminée: 4 lignes, 5 colonnes."
+    )
+    assert result.tool_results[0].ok is True
+    assert result.provider_name == "internal"
+    assert result.model_name == "controlled-response"
+    assert model.calls == 2
+
+
+def test_orchestrator_runs_default_excel_analysis_when_model_skips_tool_call(
+    tmp_path: Path,
+) -> None:
+    workbook_path = write_minified_grand_livre(tmp_path)
+    model = FakeModelProvider(
+        responses=(
+            ModelResponse(
+                text="Les contrôles déterministes sont disponibles.",
+                provider_name="internal",
+                model_name="controlled-response",
+                finish_reason="controlled_response",
+                tool_calls=(),
+            ),
+        ),
+    )
+    orchestrator = _create_orchestrator(tmp_path, model)
+
+    result = orchestrator.run(
+        AgentRunRequest(
+            user_message="Analyse ce fichier Excel.",
+            file_path=workbook_path,
+            sheet_name="Grand Livre",
+            allowed_tools=("list_sheets", "profile_sheet", "analyze_ledger"),
+        ),
+    )
+
+    assert result.answer == (
+        "Analyse du Grand Livre terminée: 4 lignes, 5 colonnes.\n\n"
+        "Colonnes requises disponibles."
+    )
+    assert result.tool_results[0].ok is True
+    assert result.tool_results[0].tool_name == "analyze_ledger"
+    assert result.provider_name == "internal"
+    assert result.model_name == "deterministic-excel-analysis"
+    assert [event.event_type for event in result.execution_events] == [
+        "run_started",
+        "file_checked",
+        "model_requested",
+        "tool_requested",
+        "tool_started",
+        "tool_finished",
+        "answer_ready",
+    ]
+    assert model.calls == 1
 
 
 def test_orchestrator_refuses_disallowed_tool_call(tmp_path: Path) -> None:

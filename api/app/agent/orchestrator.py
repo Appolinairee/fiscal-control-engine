@@ -1,3 +1,4 @@
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +13,7 @@ from app.llm.domain import (
     ModelMessage,
     ModelProvider,
     ModelRequest,
+    ModelResponse,
     ModelToolDefinition,
     ToolCall,
 )
@@ -158,6 +160,63 @@ class AgentOrchestrator:
         if self._has_timed_out(started_at):
             return _timeout_result(tuple(events))
         if not initial_response.tool_calls:
+            deterministic_tool_call = _default_file_tool_call(request)
+            if deterministic_tool_call is not None:
+                emit(
+                    AgentRunEvent(
+                        event_type="tool_requested",
+                        title="Analyse préparée",
+                        message=(
+                            f"{_tool_user_label(deterministic_tool_call.name)} "
+                            "prête."
+                        ),
+                        status="completed",
+                        tool_name=deterministic_tool_call.name,
+                        provider_name=initial_response.provider_name,
+                        model_name=initial_response.model_name,
+                    ),
+                )
+                emit(_tool_started_event(deterministic_tool_call.name))
+                tool_result = self._execute_allowed_tool_call(
+                    deterministic_tool_call,
+                    request,
+                )
+                emit(_tool_finished_event(tool_result))
+                if not tool_result.ok:
+                    emit(
+                        AgentRunEvent(
+                            event_type="run_failed",
+                            title="Analyse arrêtée",
+                            message="L'analyse demandée ne peut pas être exécutée.",
+                            status="error",
+                            provider_name=initial_response.provider_name,
+                            model_name=initial_response.model_name,
+                        ),
+                    )
+                    return AgentRunResult(
+                        answer="Le tool call a ete refuse par les garde-fous.",
+                        provider_name=initial_response.provider_name,
+                        model_name=initial_response.model_name,
+                        execution_events=tuple(events),
+                        tool_results=(tool_result,),
+                    )
+                emit(
+                    AgentRunEvent(
+                        event_type="answer_ready",
+                        title="Réponse prête",
+                        message="Réponse prête.",
+                        status="completed",
+                        provider_name="internal",
+                        model_name="deterministic-excel-analysis",
+                    ),
+                )
+                return AgentRunResult(
+                    answer=_deterministic_tool_answer(tool_result),
+                    provider_name="internal",
+                    model_name="deterministic-excel-analysis",
+                    execution_events=tuple(events),
+                    tool_results=(tool_result,),
+                )
             answer = self._answer_policy.apply(initial_response.text).answer
             emit(
                 AgentRunEvent(
@@ -239,7 +298,11 @@ class AgentOrchestrator:
         )
         if self._has_timed_out(started_at):
             return _timeout_result(tuple(events))
-        answer = self._answer_policy.apply(final_response.text).answer
+        answer = _final_answer_from_model_or_tools(
+            final_response=final_response,
+            tool_results=stable_tool_results,
+            answer_policy=self._answer_policy,
+        )
         emit(
             AgentRunEvent(
                 event_type="answer_ready",
@@ -383,6 +446,87 @@ def _rows_columns_summary(prefix: str, output: dict[str, object]) -> str:
     return f"{prefix}."
 
 
+def _default_file_tool_call(request: AgentRunRequest) -> ToolCall | None:
+    if request.file_path is None:
+        return None
+    if request.sheet_name is not None:
+        if "analyze_ledger" in request.allowed_tools:
+            return ToolCall(
+                name="analyze_ledger",
+                arguments={
+                    "file_path": str(request.file_path),
+                    "sheet_name": request.sheet_name,
+                },
+            )
+        if "profile_sheet" in request.allowed_tools:
+            return ToolCall(
+                name="profile_sheet",
+                arguments={
+                    "file_path": str(request.file_path),
+                    "sheet_name": request.sheet_name,
+                },
+            )
+    if "list_sheets" in request.allowed_tools:
+        return ToolCall(
+            name="list_sheets",
+            arguments={"file_path": str(request.file_path)},
+        )
+    return None
+
+
+def _deterministic_tool_answer(tool_result: ToolExecutionResult) -> str:
+    summary = normalize_answer_summary(_tool_result_summary(tool_result))
+    if tool_result.tool_name != "analyze_ledger":
+        return summary
+
+    schema = tool_result.output.get("schema")
+    if not isinstance(schema, dict):
+        return summary
+
+    missing_columns = schema.get("missing_required_columns")
+    if isinstance(missing_columns, list) and missing_columns:
+        return (
+            f"{summary}\n\n"
+            "Colonnes requises manquantes: "
+            f"{', '.join(str(column) for column in missing_columns)}."
+        )
+    return f"{summary}\n\nColonnes requises disponibles."
+
+
+def _deterministic_tool_results_answer(
+    tool_results: tuple[ToolExecutionResult, ...],
+) -> str:
+    for tool_name in ("analyze_ledger", "profile_sheet", "get_columns", "list_sheets"):
+        for tool_result in reversed(tool_results):
+            if tool_result.tool_name == tool_name and tool_result.ok:
+                return _deterministic_tool_answer(tool_result)
+    return "Les contrôles déterministes sont terminés."
+
+
+def _final_answer_from_model_or_tools(
+    final_response: ModelResponse,
+    tool_results: tuple[ToolExecutionResult, ...],
+    answer_policy: AgentAnswerPolicy,
+) -> str:
+    if _is_controlled_internal_response(final_response):
+        return _deterministic_tool_results_answer(tool_results)
+    return answer_policy.apply(final_response.text).answer
+
+
+def _is_controlled_internal_response(response: ModelResponse) -> bool:
+    return response.provider_name in {"internal", "internal-fallback"}
+
+
+def normalize_answer_summary(message: str) -> str:
+    return message.replace(
+        "L'analyse de la feuille Excel est terminée:",
+        "Analyse de la feuille Excel terminée:",
+    ).replace(
+        "L'analyse du Grand Livre est terminée:",
+        "Analyse du Grand Livre terminée:",
+    )
+
+
 def _initial_model_request(
     request: AgentRunRequest,
     tool_definitions: tuple[ModelToolDefinition, ...],
@@ -448,10 +592,47 @@ def _final_model_request(
                 ),
             ),
             ModelMessage(role="user", content=request.user_message),
-            ModelMessage(role="tool", content=repr(tool_results)),
+            ModelMessage(
+                role="user",
+                content=(
+                    "Résultats déterministes déjà calculés par l'API. "
+                    "Réponds uniquement à partir de ces résultats, sans inventer.\n"
+                    f"{_tool_results_context(tool_results)}"
+                ),
+            ),
         ),
         allowed_tools=(),
         temperature=0.0,
         max_output_tokens=1200,
         timeout_seconds=30.0,
     )
+
+
+def _tool_results_context(tool_results: tuple[ToolExecutionResult, ...]) -> str:
+    payload = [
+        {
+            "tool_name": tool_result.tool_name,
+            "ok": tool_result.ok,
+            "summary": normalize_answer_summary(_tool_result_summary(tool_result)),
+            "output": _compact_tool_output(tool_result),
+            "error_code": tool_result.error_code,
+        }
+        for tool_result in tool_results
+    ]
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def _compact_tool_output(tool_result: ToolExecutionResult) -> dict[str, object]:
+    output = tool_result.output
+    compact_output: dict[str, object] = {}
+    for key in (
+        "sheet_names",
+        "sheet_name",
+        "row_count",
+        "column_count",
+        "schema",
+        "columns",
+    ):
+        if key in output:
+            compact_output[key] = output[key]
+    return compact_output
